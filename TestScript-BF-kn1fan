@@ -39,7 +39,6 @@ ChestFarm:AddSection({ "Второе Море" })
 ChestFarm:AddButton({
     Name = "запустить фарм",
     Description = "Автоматически фармит сундуки на 2 море",
-    Callback = function()
         local function farmSecondSeaChests()
     -- Проверяем, что игрок на Втором море
     if game:GetService("Players").LocalPlayer.Data.Level.Value < 700 then
