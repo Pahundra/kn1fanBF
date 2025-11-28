@@ -39,61 +39,103 @@ ChestFarm:AddSection({ "Второе Море" })
 ChestFarm:AddButton({
     Name = "запустить фарм",
     Description = "Автоматически фармит сундуки на 2 море",
-        local function farmSecondSeaChests()
+    Callback = function(local function farmSecondSeaChests()
     -- Проверяем, что игрок на Втором море
     if game:GetService("Players").LocalPlayer.Data.Level.Value < 700 then
         warn("Нужно быть на Втором море (уровень 700+)")
         return
     end
     
-    -- Места спавна сундуков на Втором море
-    local chestLocations = {
-        Vector3.new(-1000, 100, 1500),  -- Пример координат
-        Vector3.new(-1200, 80, 1800),
-        Vector3.new(-800, 90, 2000),
-        Vector3.new(-1500, 110, 1600),
-        Vector3.new(-600, 95, 1700)
-    }
-    
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
-    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
     
-    -- Функция для поиска сундуков
+    -- Локальная функция для сбора сундука
+    local function collectChest(chest)
+        if not chest or not chest.Parent then 
+            return false 
+        end
+        
+        local character = localPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return false
+        end
+        
+        local success = false
+        local touchConnection
+        
+        -- Функция обработки касания
+        local function onTouched(hit)
+            if hit.Parent == character then
+                success = true
+                if touchConnection then
+                    touchConnection:Disconnect()
+                end
+            end
+        end
+        
+        -- Подключаемся к событию
+        touchConnection = chest.Touched:Connect(onTouched)
+        
+        -- Активируем сбор
+        firetouchinterest(character.HumanoidRootPart, chest, 0)
+        firetouchinterest(character.HumanoidRootPart, chest, 1)
+        
+        -- Ждем результат (2 секунды таймаут)
+        for i = 1, 20 do
+            if success then break end
+            wait(0.1)
+        end
+        
+        if touchConnection then
+            touchConnection:Disconnect()
+        end
+        
+        return success
+    end
+    
+    -- Локальная функция для поиска сундуков
     local function findChests()
         local chests = {}
+        local searchRadius = 300
         
-        -- Ищем сундуки в радиусе
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj.Name:lower():find("chest") and obj:FindFirstChild("TouchInterest") then
-                table.insert(chests, obj)
+        local character = localPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return chests
+        end
+        
+        local rootPos = character.HumanoidRootPart.Position
+        
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Part") and obj.Name:lower():find("chest") then
+                if obj:FindFirstChild("TouchInterest") then
+                    local distance = (obj.Position - rootPos).Magnitude
+                    if distance < searchRadius then
+                        table.insert(chests, obj)
+                    end
+                end
             end
         end
         
         return chests
     end
     
-    -- Функция для перемещения к сундуку
-    local function moveToChest(chest)
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return false end
+    -- Локальная функция для телепортации к сундуку
+    local function teleportToChest(chest)
+        local character = localPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return false
+        end
         
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return false end
-        
-        -- Перемещаемся к сундуку
-        rootPart.CFrame = chest.CFrame + Vector3.new(0, 3, 0)
-        
-        -- Ждем немного перед сбором
+        character.HumanoidRootPart.CFrame = chest.CFrame + Vector3.new(0, 3, 0)
         wait(0.5)
         return true
     end
     
     -- Основной цикл фарминга
     while true do
-        -- Ждем появления персонажа
-        if not character or not character:FindFirstChild("HumanoidRootPart") then
-            character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+        local character = localPlayer.Character
+        if not character then
+            character = localPlayer.CharacterAdded:Wait()
             wait(2)
         end
         
@@ -103,53 +145,30 @@ ChestFarm:AddButton({
         if #chests > 0 then
             print("Найдено сундуков: " .. #chests)
             
-            -- Собираем все найденные сундуки
-            for _, chest in pairs(chests) do
-                if chest and chest.Parent then
-                    local success = moveToChest(chest)
-                    if success then
-                        -- Активируем TouchInterest для сбора
-                        local touchInterest = chest:FindFirstChild("TouchInterest")
-                        if touchInterest then
-                            firetouchinterest(character.HumanoidRootPart, chest, 0)
-                            firetouchinterest(character.HumanoidRootPart, chest, 1)
-                        end
-                        wait(1) -- Задержка между сундуками
+            for i, chest in ipairs(chests) do
+                -- Телепортируемся к сундуку
+                if teleportToChest(chest) then
+                    -- Собираем сундук
+                    local collected = collectChest(chest)
+                    if collected then
+                        print("✓ Сундук " .. i .. " собран")
+                    else
+                        print("✗ Не удалось собрать сундук " .. i)
                     end
                 end
+                wait(1)
             end
         else
-            print("Сундуки не найдены, проверяем известные места...")
-            
-            -- Проверяем известные места спавна
-            for _, location in pairs(chestLocations) do
-                local rootPart = character:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    rootPart.CFrame = CFrame.new(location)
-                    wait(2) -- Ждем появления сундуков
-                    
-                    chests = findChests()
-                    if #chests > 0 then
-                        break
-                    end
-                end
-            end
+            print("Сундуки не найдены, продолжаем поиск...")
         end
         
-        wait(5) -- Задержка между проверками
+        wait(3) -- Задержка между проверками
     end
 end
 
--- Дополнительная функция для безопасного запуска
-local function startChestFarming()
-    local success, err = pcall(farmSecondSeaChests)
-    if not success then
-        warn("Ошибка при фарминге сундуков: " .. err)
-    end
-end
-
--- Использование:
--- startChestFarming()
+-- Запуск фарминга
+farmSecondSeaChests())
+        
 
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/miroeramaa/TurtleLib/main/TurtleUiLib.lua"))()
 local window = library:Window("Project LKB")
