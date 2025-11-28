@@ -1,7 +1,7 @@
-local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/tbao143/Library-ui/refs/heads/main/Redzhubui"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/tbao143/Library-ui/refs/heads/main/Redzhubui"))()
 workspace.FallenPartsDestroyHeight = -math.huge
 
-local Window = Libary:MakeWindow({
+local Window = Library:MakeWindow({
     Title = "lava Hub | Blox Fruits ",
     SubTitle = "by: @kn1fan / lava85halst",
     LoadText = "Loading lava Hub",
@@ -14,12 +14,10 @@ Window:AddMinimizeButton({
 
 local InfoTab = Window:MakeTab({ Title = "Info", Icon = "rbxassetid://72674068736695" })
 
-
-
 InfoTab:AddSection({ "Script Information" })
 InfoTab:AddParagraph({ "Owner / Developer:", "@kn1fan / lava85halst" })
 InfoTab:AddParagraph({ "You are using:", "lava Hub Brookhaven " })
-InfoTab:AddParagraph({"Your executor:", executor})
+InfoTab:AddParagraph({"Your executor:", "Executor Name"})
 
 InfoTab:AddSection({ "Rejoin" })
 InfoTab:AddButton({
@@ -30,145 +28,164 @@ InfoTab:AddButton({
     end
 })
 
-
-
 local ChestFarm = Window:MakeTab({ Title = "Фарм сундуков", Icon = "rbxassetid://13364900349" })
 
-
 ChestFarm:AddSection({ "Второе Море" })
+
 ChestFarm:AddButton({
     Name = "запустить фарм",
     Description = "Автоматически фармит сундуки на 2 море",
-    Callback = function(local function farmSecondSeaChests()
-    -- Проверяем, что игрок на Втором море
-    if game:GetService("Players").LocalPlayer.Data.Level.Value < 700 then
-        warn("Нужно быть на Втором море (уровень 700+)")
-        return
-    end
-    
-    local Players = game:GetService("Players")
-    local localPlayer = Players.LocalPlayer
-    
-    -- Локальная функция для сбора сундука
-    local function collectChest(chest)
-        if not chest or not chest.Parent then 
-            return false 
-        end
-        
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then
-            return false
-        end
-        
-        local success = false
-        local touchConnection
-        
-        -- Функция обработки касания
-        local function onTouched(hit)
-            if hit.Parent == character then
-                success = true
-                if touchConnection then
-                    touchConnection:Disconnect()
-                end
+    Callback = function()
+        -- Функция фарминга сундуков
+        local function farmSecondSeaChests()
+            -- Проверяем, что игрок на Втором море
+            if game:GetService("Players").LocalPlayer.Data.Level.Value < 700 then
+                warn("Нужно быть на Втором море (уровень 700+)")
+                return
             end
-        end
-        
-        -- Подключаемся к событию
-        touchConnection = chest.Touched:Connect(onTouched)
-        
-        -- Активируем сбор
-        firetouchinterest(character.HumanoidRootPart, chest, 0)
-        firetouchinterest(character.HumanoidRootPart, chest, 1)
-        
-        -- Ждем результат (2 секунды таймаут)
-        for i = 1, 20 do
-            if success then break end
-            wait(0.1)
-        end
-        
-        if touchConnection then
-            touchConnection:Disconnect()
-        end
-        
-        return success
-    end
-    
-    -- Локальная функция для поиска сундуков
-    local function findChests()
-        local chests = {}
-        local searchRadius = 300
-        
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then
-            return chests
-        end
-        
-        local rootPos = character.HumanoidRootPart.Position
-        
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Part") and obj.Name:lower():find("chest") then
-                if obj:FindFirstChild("TouchInterest") then
-                    local distance = (obj.Position - rootPos).Magnitude
-                    if distance < searchRadius then
+            
+            local Players = game:GetService("Players")
+            local localPlayer = Players.LocalPlayer
+            local isRunning = true
+            
+            -- Локальная функция для поиска сундуков
+            local function findChests()
+                local chests = {}
+                
+                for _, obj in pairs(workspace:GetChildren()) do
+                    -- Ищем сундуки по разным возможным названиям
+                    if (obj.Name:lower():find("chest") or obj.Name:lower():find("sunduk") or obj.Name:lower():find("strong")) 
+                        and obj:IsA("Part") and obj:FindFirstChild("TouchInterest") then
                         table.insert(chests, obj)
                     end
                 end
+                
+                return chests
             end
-        end
-        
-        return chests
-    end
-    
-    -- Локальная функция для телепортации к сундуку
-    local function teleportToChest(chest)
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then
-            return false
-        end
-        
-        character.HumanoidRootPart.CFrame = chest.CFrame + Vector3.new(0, 3, 0)
-        wait(0.5)
-        return true
-    end
-    
-    -- Основной цикл фарминга
-    while true do
-        local character = localPlayer.Character
-        if not character then
-            character = localPlayer.CharacterAdded:Wait()
-            wait(2)
-        end
-        
-        -- Ищем сундуки
-        local chests = findChests()
-        
-        if #chests > 0 then
-            print("Найдено сундуков: " .. #chests)
             
-            for i, chest in ipairs(chests) do
+            -- Локальная функция для телепортации к сундуку
+            local function teleportToChest(chest)
+                local character = localPlayer.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then
+                    return false
+                end
+                
                 -- Телепортируемся к сундуку
-                if teleportToChest(chest) then
-                    -- Собираем сундук
-                    local collected = collectChest(chest)
-                    if collected then
-                        print("✓ Сундук " .. i .. " собран")
-                    else
-                        print("✗ Не удалось собрать сундук " .. i)
+                character.HumanoidRootPart.CFrame = chest.CFrame + Vector3.new(0, 5, 0)
+                wait(0.5)
+                return true
+            end
+            
+            -- Локальная функция для сбора сундука
+            local function collectChest(chest)
+                if not chest or not chest.Parent then 
+                    return false 
+                end
+                
+                local character = localPlayer.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then
+                    return false
+                end
+                
+                -- Простой сбор сундука
+                firetouchinterest(character.HumanoidRootPart, chest, 0)
+                wait(0.1)
+                firetouchinterest(character.HumanoidRootPart, chest, 1)
+                wait(0.5)
+                
+                return true
+            end
+            
+            -- Основной цикл фарминга
+            while isRunning do
+                local character = localPlayer.Character
+                if not character then
+                    character = localPlayer.CharacterAdded:Wait()
+                    wait(2)
+                end
+                
+                if not character:FindFirstChild("HumanoidRootPart") then
+                    wait(1)
+                    continue
+                end
+                
+                -- Ищем сундуки
+                local chests = findChests()
+                
+                if #chests > 0 then
+                    print("Найдено сундуков: " .. #chests)
+                    
+                    for i, chest in ipairs(chests) do
+                        if not isRunning then break end
+                        if not chest or not chest.Parent then continue end
+                        
+                        print("Пытаемся собрать сундук " .. i)
+                        
+                        -- Телепортируемся к сундуку
+                        if teleportToChest(chest) then
+                            -- Собираем сундук
+                            local collected = collectChest(chest)
+                            if collected then
+                                print("✓ Сундук " .. i .. " собран")
+                            else
+                                print("✗ Не удалось собрать сундук " .. i)
+                            end
+                        end
+                        wait(1)
+                    end
+                else
+                    print("Сундуки не найдены, проверяем точки спавна...")
+                    
+                    -- Точки спавна сундуков на Втором море
+                    local spawnPoints = {
+                        Vector3.new(1400, 50, 100),
+                        Vector3.new(1600, 50, -200),
+                        Vector3.new(1200, 50, -500),
+                        Vector3.new(800, 50, 300),
+                        Vector3.new(2000, 50, 600),
+                        Vector3.new(-500, 50, 1200),
+                        Vector3.new(-800, 50, 800),
+                        Vector3.new(-1200, 50, 400)
+                    }
+                    
+                    -- Проверяем точки спавна
+                    for j, point in ipairs(spawnPoints) do
+                        if not isRunning then break end
+                        if character and character:FindFirstChild("HumanoidRootPart") then
+                            character.HumanoidRootPart.CFrame = CFrame.new(point)
+                            wait(1)
+                            
+                            -- Снова ищем сундуки после телепортации
+                            chests = findChests()
+                            if #chests > 0 then
+                                print("Найдены сундуки в точке " .. j)
+                                break
+                            end
+                        end
                     end
                 end
-                wait(1)
+                
+                wait(2) -- Задержка между проверками
             end
-        else
-            print("Сундуки не найдены, продолжаем поиск...")
         end
         
-        wait(3) -- Задержка между проверками
+        -- Запуск фарминга
+        farmSecondSeaChests()
     end
-end
+})
 
--- Запуск фарминга
-farmSecondSeaChests())
-        
+-- Добавляем кнопку остановки
+ChestFarm:AddButton({
+    Name = "остановить фарм",
+    Description = "Останавливает фарм сундуков",
+    Callback = function()
+        -- Здесь нужно добавить логику остановки
+        warn("Функция остановки будет реализована в следующей версии")
+    end
+})
+
+ChestFarm:AddSection({ "Точки спавна" })
+ChestFarm:AddParagraph({"Важные локации:", "Королевство роз, Лес Мида, Пустыня, Ледяной остров"})
 
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/miroeramaa/TurtleLib/main/TurtleUiLib.lua"))()
 local window = library:Window("Project LKB")
