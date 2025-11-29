@@ -147,6 +147,7 @@ local function safeFlyToPosition(targetPosition, speed)
     local character = localPlayer.Character
     
     if not character or not character:FindFirstChild("HumanoidRootPart") then
+        print("❌ Персонаж не найден для полета")
         return false
     end
     
@@ -201,8 +202,10 @@ local function safeFlyToPosition(targetPosition, speed)
     -- Плавно останавливаемся
     if bodyVelocity and bodyVelocity.Parent then
         for i = 1, 5 do
-            bodyVelocity.Velocity = bodyVelocity.Velocity * 0.5
-            wait(0.1)
+            if bodyVelocity and bodyVelocity.Parent then
+                bodyVelocity.Velocity = bodyVelocity.Velocity * 0.5
+                wait(0.1)
+            end
         end
         bodyVelocity:Destroy()
     end
@@ -846,73 +849,70 @@ function startLevelFarm()
                localPlayer.Character.Humanoid.Health <= 0 then
                 print("💀 Персонаж мертв, ждем респавн...")
                 wait(5)
-                continue
-            end
-            
-            -- Обновляем статистику оружия
-            updatePlayerStats()
-            
-            local currentLevel = getPlayerLevel()
-            print("🎯 Текущий уровень: " .. currentLevel)
-            
-            -- Проверяем, не выполнен ли текущий квест
-            if currentQuest and checkQuestProgress() then
-                print("✅ Текущий квест выполнен, сдаем...")
-                completeQuest()
-                currentQuest = nil
-                wait(2)
-            end
-            
-            -- Если нет активного квеста, берем новый
-            if not currentQuest then
-                local questInfo = getQuestInfo(currentLevel)
-                if not questInfo then
-                    print("❌ Не удалось получить информацию о квесте")
-                    wait(5)
-                    continue
-                end
-                
-                -- Берем квест
-                local questTaken = takeQuest(questInfo)
-                if not questTaken then
-                    print("❌ Не удалось взять квест")
-                    wait(3)
-                    continue
-                end
-            end
-            
-            print("✅ Квест активен, начинаем фарм мобов...")
-            
-            -- Фармим мобов для квеста
-            local mobsFarmed = false
-            local farmAttempts = 0
-            local maxFarmAttempts = 20
-            
-            while isLevelFarming and not mobsFarmed and farmAttempts < maxFarmAttempts do
-                mobsFarmed = farmMobs(currentQuest.mobName)
-                farmAttempts = farmAttempts + 1
-                
-                -- Проверяем выполнение квеста после фарма
-                if checkQuestProgress() then
-                    print("🎯 Квест выполнен в процессе фарма!")
-                    mobsFarmed = true
-                    break
-                end
-                
-                wait(2)
-            end
-            
-            if checkQuestProgress() then
-                print("✅ Квест выполнен, сдаем...")
-                completeQuest()
-                currentQuest = nil
-            elseif mobsFarmed then
-                print("✅ Успешно профармили мобов")
             else
-                print("❌ Не удалось профармить мобов после " .. maxFarmAttempts .. " попыток")
+                -- Обновляем статистику оружия
+                updatePlayerStats()
+                
+                local currentLevel = getPlayerLevel()
+                print("🎯 Текущий уровень: " .. currentLevel)
+                
+                -- Проверяем, не выполнен ли текущий квест
+                if currentQuest and checkQuestProgress() then
+                    print("✅ Текущий квест выполнен, сдаем...")
+                    completeQuest()
+                    currentQuest = nil
+                    wait(2)
+                end
+                
+                -- Если нет активного квеста, берем новый
+                if not currentQuest then
+                    local questInfo = getQuestInfo(currentLevel)
+                    if not questInfo then
+                        print("❌ Не удалось получить информацию о квесте")
+                        wait(5)
+                    else
+                        -- Берем квест
+                        local questTaken = takeQuest(questInfo)
+                        if not questTaken then
+                            print("❌ Не удалось взять квест")
+                            wait(3)
+                        end
+                    end
+                else
+                    print("✅ Квест активен, начинаем фарм мобов...")
+                    
+                    -- Фармим мобов для квеста
+                    local mobsFarmed = false
+                    local farmAttempts = 0
+                    local maxFarmAttempts = 20
+                    
+                    while isLevelFarming and not mobsFarmed and farmAttempts < maxFarmAttempts do
+                        mobsFarmed = farmMobs(currentQuest.mobName)
+                        farmAttempts = farmAttempts + 1
+                        
+                        -- Проверяем выполнение квеста после фарма
+                        if checkQuestProgress() then
+                            print("🎯 Квест выполнен в процессе фарма!")
+                            mobsFarmed = true
+                            break
+                        end
+                        
+                        wait(2)
+                    end
+                    
+                    if checkQuestProgress() then
+                        print("✅ Квест выполнен, сдаем...")
+                        completeQuest()
+                        currentQuest = nil
+                    elseif mobsFarmed then
+                        print("✅ Успешно профармили мобов")
+                    else
+                        print("❌ Не удалось профармить мобов после " .. maxFarmAttempts .. " попыток")
+                    end
+                    
+                    wait(2)
+                end
             end
-            
-            wait(2)
         end
     end)
 end
