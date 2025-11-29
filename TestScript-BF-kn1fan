@@ -42,8 +42,58 @@ LevelFarm:AddButton({
 })
 
 LevelFarm:AddButton({
-    Name = "Остановить фарм",
-    Description = "Останавливает фарминг уровней",
+    Name = "Остановить фарм 1 море",
+    Description = "Останавливает фарминг уровней на 1 море",
+    Callback = function()
+        stopLevelFarm()
+    end
+})
+
+-- Секция для 2 моря
+LevelFarm:AddSection({ "2 Море" })
+
+LevelFarm:AddButton({
+    Name = "Включить фарм 2 море",
+    Description = "Автоматически фармит уровни на 2 море",
+    Callback = function()
+        if isLevelFarming then
+            print("Фарминг уровней уже запущен")
+            return
+        end
+        
+        currentSea = 2
+        startLevelFarm()
+    end
+})
+
+LevelFarm:AddButton({
+    Name = "Остановить фарм 2 море",
+    Description = "Останавливает фарминг уровней на 2 море",
+    Callback = function()
+        stopLevelFarm()
+    end
+})
+
+-- Секция для 3 моря
+LevelFarm:AddSection({ "3 Море" })
+
+LevelFarm:AddButton({
+    Name = "Включить фарм 3 море",
+    Description = "Автоматически фармит уровни на 3 море",
+    Callback = function()
+        if isLevelFarming then
+            print("Фарминг уровней уже запущен")
+            return
+        end
+        
+        currentSea = 3
+        startLevelFarm()
+    end
+})
+
+LevelFarm:AddButton({
+    Name = "Остановить фарм 3 море",
+    Description = "Останавливает фарминг уровней на 3 море",
     Callback = function()
         stopLevelFarm()
     end
@@ -53,6 +103,175 @@ LevelFarm:AddButton({
 function stopLevelFarm()
     isLevelFarming = false
     print("✅ Фарминг уровней остановлен")
+end
+
+-- НЕДОСТАЮЩИЕ ФУНКЦИИ:
+
+-- Функция для поиска NPC
+local function findNPC(npcName)
+    -- Поиск в различных возможных местах
+    local searchFolders = {
+        workspace.NPCs,
+        workspace.Live,
+        workspace.Mobs,
+        workspace.Enemies,
+        workspace
+    }
+    
+    for _, folder in pairs(searchFolders) do
+        if folder then
+            for _, npc in pairs(folder:GetChildren()) do
+                if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+                    local humanoid = npc:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        -- Проверяем различные варианты имен
+                        if string.lower(npc.Name) == string.lower(npcName) or 
+                           string.find(string.lower(npc.Name), string.lower(npcName)) then
+                            print("✅ Найден NPC: " .. npc.Name .. " в позиции: " .. tostring(npc.HumanoidRootPart.Position))
+                            return npc
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    print("❌ NPC " .. npcName .. " не найден")
+    return nil
+end
+
+-- Функция для безопасного полета к точке
+local function safeFlyToPosition(targetPosition, speed)
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+    local character = localPlayer.Character
+    
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local rootPart = character.HumanoidRootPart
+    
+    -- Включаем NoClip
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+    
+    -- Создаем BodyVelocity для полета
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+    bodyVelocity.Parent = rootPart
+    
+    local startPos = rootPart.Position
+    local distance = (targetPosition - startPos).Magnitude
+    local maxTime = math.min(30, distance / speed + 10)
+    
+    print("🛫 Летим к цели. Дистанция: " .. math.floor(distance) .. " studs")
+    
+    local startTime = tick()
+    
+    while isLevelFarming and character and rootPart and bodyVelocity.Parent do
+        local currentPos = rootPart.Position
+        local currentDistance = (targetPosition - currentPos).Magnitude
+        
+        -- Проверяем достижение цели
+        if currentDistance < 15 then
+            print("✅ Достигли цели")
+            break
+        end
+        
+        -- Проверяем таймаут
+        if tick() - startTime > maxTime then
+            print("⏰ Таймаут полета")
+            break
+        end
+        
+        -- Вычисляем направление и скорость
+        local direction = (targetPosition - currentPos).Unit
+        local adjustedSpeed = math.min(speed, currentDistance * 2)
+        
+        bodyVelocity.Velocity = direction * adjustedSpeed
+        
+        wait()
+    end
+    
+    -- Плавно останавливаемся
+    if bodyVelocity and bodyVelocity.Parent then
+        for i = 1, 5 do
+            bodyVelocity.Velocity = bodyVelocity.Velocity * 0.5
+            wait(0.1)
+        end
+        bodyVelocity:Destroy()
+    end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+    
+    return true
+end
+
+-- Функция для получения уровня игрока
+local function getPlayerLevel()
+    local localPlayer = game:GetService("Players").LocalPlayer
+    if localPlayer and localPlayer:FindFirstChild("Data") and localPlayer.Data:FindFirstChild("Level") then
+        return localPlayer.Data.Level.Value
+    end
+    return 1
+end
+
+-- Функция для получения информации о квесте на основе реальных NPC
+local function getQuestInfo(level)
+    local questData = {
+        npcName = "",
+        mobName = "",
+        npcPosition = nil
+    }
+    
+    if currentSea == 1 then
+        if level < 10 then
+            questData.npcName = "Bandit"
+            questData.mobName = "Bandit"
+        elseif level < 20 then
+            questData.npcName = "Monkey"
+            questData.mobName = "Monkey"
+        elseif level < 30 then
+            questData.npcName = "Gorilla"
+            questData.mobName = "Gorilla"
+        elseif level < 40 then
+            questData.npcName = "Pirate"
+            questData.mobName = "Pirate"
+        else
+            questData.npcName = "Desert Bandit"
+            questData.mobName = "Desert Bandit"
+        end
+    elseif currentSea == 2 then
+        if level < 750 then
+            questData.npcName = "Marine Captain"
+            questData.mobName = "Marine Captain"
+        else
+            questData.npcName = "Galley Captain"
+            questData.mobName = "Galley Captain"
+        end
+    elseif currentSea == 3 then
+        questData.npcName = "Pirate Millionaire"
+        questData.mobName = "Pirate Millionaire"
+    end
+    
+    -- Получаем реальную позицию NPC
+    local npc = findNPC(questData.npcName)
+    if npc and npc:FindFirstChild("HumanoidRootPart") then
+        questData.npcPosition = npc.HumanoidRootPart.Position
+        print("🎯 NPC " .. questData.npcName .. " найден на позиции: " .. tostring(questData.npcPosition))
+        return questData
+    else
+        print("❌ Не удалось найти позицию NPC: " .. questData.npcName)
+        return nil
+    end
 end
 
 -- Функция для проверки инвентаря и определения оружия
@@ -125,7 +344,7 @@ local function autoSelectWeapon()
     
     local localPlayer = game:GetService("Players").LocalPlayer
     local character = localPlayer.Character
-    if not character then return end
+    if not character then return false end
     
     -- Приоритет: фрукт > меч
     if playerStats.hasFruit then
@@ -542,10 +761,8 @@ local function completeQuest()
     return false
 end
 
--- Обновленная функция фарма мобов
-local function farmMobs(mobName)
-    print("🔫 Ищем мобов: " .. mobName)
-    
+-- Функция для поиска мобов
+local function findMobs(mobName)
     local mobs = {}
     local searchFolders = {
         workspace.Enemies,
@@ -569,6 +786,15 @@ local function farmMobs(mobName)
             end
         end
     end
+    
+    return mobs
+end
+
+-- Обновленная функция фарма мобов
+local function farmMobs(mobName)
+    print("🔫 Ищем мобов: " .. mobName)
+    
+    local mobs = findMobs(mobName)
     
     if #mobs == 0 then
         print("❌ Мобы " .. mobName .. " не найдены")
@@ -604,7 +830,7 @@ local function farmMobs(mobName)
     return true
 end
 
--- Обновленная основная функция фарма
+-- Основная функция фарма уровней
 function startLevelFarm()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
@@ -690,5 +916,3 @@ function startLevelFarm()
         end
     end)
 end
-
--- Добавьте остальные функции (findNPC, safeFlyToPosition, getPlayerLevel, getQuestInfo) из предыдущего кода
