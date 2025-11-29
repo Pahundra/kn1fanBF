@@ -53,73 +53,21 @@ ChestFarm:AddButton({
             
             local Players = game:GetService("Players")
             local localPlayer = Players.LocalPlayer
+            local TweenService = game:GetService("TweenService")
             isRunning = true
             
-            -- Безопасные точки для патрулирования (над землей)
-            local safePatrolPoints = {
-                -- Kingdom of Rose
-                Vector3.new(1400, 80, 100),
-                Vector3.new(1600, 80, -200),
-                Vector3.new(1200, 80, -500),
-                Vector3.new(800, 80, 300),
-                Vector3.new(2000, 80, 600),
-                
-                -- Usoap's Island
-                Vector3.new(-500, 80, 1200),
-                Vector3.new(-800, 80, 800),
-                Vector3.new(-1200, 80, 400),
-                
-                -- Green Zone
-                Vector3.new(-1500, 80, 100),
-                Vector3.new(-1800, 80, -200),
-                
-                -- Frozen Village
-                Vector3.new(-2000, 80, -800),
-                Vector3.new(-2200, 80, -500),
-                
-                -- Ice Castle
-                Vector3.new(2500, 80, -1000),
-                
-                -- Safe middle points
-                Vector3.new(0, 80, 0),
-                Vector3.new(500, 80, 500),
-                Vector3.new(-500, 80, -500)
-            }
-            
-            -- Функция для безопасной телепортации
-            local function safeTeleport(position)
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Всегда телепортируемся на безопасную высоту
-                local safePosition = Vector3.new(position.X, 80, position.Z)
-                character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-                wait(0.5)
-                return true
-            end
-            
-            -- Функция для поиска видимых сундуков
-            local function findVisibleChests()
+            -- Функция для поиска всех сундуков на карте
+            local function findAllChests()
                 local chests = {}
-                local character = localPlayer.Character
                 
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return chests
-                end
-                
-                local currentPosition = character.HumanoidRootPart.Position
-                
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if obj:IsA("Part") and (obj.Name:lower():find("chest") or obj.Name:lower():find("sunduk")) then
-                        if obj:FindFirstChild("TouchInterest") then
-                            -- Проверяем, что сундук над землей и в пределах видимости
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("Part") and obj:FindFirstChild("TouchInterest") then
+                        -- Проверяем различные названия сундуков
+                        local name = obj.Name:lower()
+                        if name:find("chest") or name:find("sunduk") or name:find("strong") or name:find("reward") then
+                            -- Проверяем, что сундук над землей
                             if obj.Position.Y > 20 and obj.Position.Y < 500 then
-                                local distance = (obj.Position - currentPosition).Magnitude
-                                if distance < 1000 then -- Ограничиваем радиус поиска
-                                    table.insert(chests, obj)
-                                end
+                                table.insert(chests, obj)
                             end
                         end
                     end
@@ -128,8 +76,37 @@ ChestFarm:AddButton({
                 return chests
             end
             
-            -- Функция для сбора сундука с безопасной позиции
-            local function collectChestSafely(chest)
+            -- Функция для проверки наличия сундуков в области
+            local function checkChestsInArea(position, radius)
+                local chests = findAllChests()
+                local chestsInArea = {}
+                
+                for _, chest in pairs(chests) do
+                    local distance = (chest.Position - position).Magnitude
+                    if distance <= radius then
+                        table.insert(chestsInArea, chest)
+                    end
+                end
+                
+                return chestsInArea
+            end
+            
+            -- Функция для безопасной телепортации к сундуку
+            local function teleportToChest(chest)
+                local character = localPlayer.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then
+                    return false
+                end
+                
+                -- Телепортируемся над сундуком
+                local targetPosition = chest.Position + Vector3.new(0, 10, 0)
+                character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+                wait(0.5)
+                return true
+            end
+            
+            -- Функция для сбора сундука
+            local function collectChest(chest)
                 if not chest or not chest.Parent then 
                     return false 
                 end
@@ -138,11 +115,6 @@ ChestFarm:AddButton({
                 if not character or not character:FindFirstChild("HumanoidRootPart") then
                     return false
                 end
-                
-                -- Телепортируемся на безопасное расстояние над сундуком
-                local safeCollectPosition = chest.Position + Vector3.new(0, 10, 0)
-                character.HumanoidRootPart.CFrame = CFrame.new(safeCollectPosition)
-                wait(0.3)
                 
                 -- Собираем сундук
                 firetouchinterest(character.HumanoidRootPart, chest, 0)
@@ -153,31 +125,42 @@ ChestFarm:AddButton({
                 return true
             end
             
-            -- Функция патрулирования безопасных точек
-            local function safePatrol()
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return {}
-                end
+            -- Функция для поиска лучшей точки с сундуками
+            local function findBestChestLocation()
+                -- Точки для проверки на Втором море
+                local checkPoints = {
+                    Vector3.new(1400, 80, 100),    -- Kingdom of Rose
+                    Vector3.new(1600, 80, -200),   -- Kingdom of Rose
+                    Vector3.new(1200, 80, -500),   -- Kingdom of Rose
+                    Vector3.new(800, 80, 300),     -- Kingdom of Rose
+                    Vector3.new(2000, 80, 600),    -- Kingdom of Rose
+                    Vector3.new(-500, 80, 1200),   -- Usoap's Island
+                    Vector3.new(-800, 80, 800),    -- Usoap's Island
+                    Vector3.new(-1200, 80, 400),   -- Usoap's Island
+                    Vector3.new(-1500, 80, 100),   -- Green Zone
+                    Vector3.new(-1800, 80, -200),  -- Green Zone
+                    Vector3.new(500, 80, -1200),   -- Cursed Ship
+                    Vector3.new(800, 80, -1500),   -- Cursed Ship
+                    Vector3.new(-2000, 80, -800),  -- Frozen Village
+                    Vector3.new(-2200, 80, -500),  -- Frozen Village
+                    Vector3.new(2500, 80, -1000)   -- Ice Castle
+                }
                 
-                for i, point in ipairs(safePatrolPoints) do
+                local bestLocation = nil
+                local maxChests = 0
+                
+                -- Проверяем все точки на наличие сундуков
+                for _, point in pairs(checkPoints) do
                     if not isRunning then break end
                     
-                    print("Патрулируем точку " .. i)
-                    
-                    -- Безопасная телепортация
-                    safeTeleport(point)
-                    wait(2) -- Ждем загрузки
-                    
-                    -- Ищем сундуки
-                    local chests = findVisibleChests()
-                    if #chests > 0 then
-                        print("Найдено сундуков в точке " .. i .. ": " .. #chests)
-                        return chests
+                    local chestsInArea = checkChestsInArea(point, 300)
+                    if #chestsInArea > maxChests then
+                        maxChests = #chestsInArea
+                        bestLocation = point
                     end
                 end
                 
-                return {}
+                return bestLocation, maxChests
             end
             
             -- Основной цикл фарминга
@@ -193,46 +176,61 @@ ChestFarm:AddButton({
                     continue
                 end
                 
-                -- Сначала ищем сундуки вокруг
-                local chests = findVisibleChests()
+                -- Ищем все сундуки на карте
+                local allChests = findAllChests()
                 
-                -- Если нет сундуков рядом - патрулируем
-                if #chests == 0 then
-                    print("Сундуков рядом нет, начинаем патрулирование...")
-                    chests = safePatrol()
-                end
-                
-                -- Собираем найденные сундуки
-                if #chests > 0 then
-                    print("Собираем " .. #chests .. " сундуков...")
+                if #allChests > 0 then
+                    print("Найдено сундуков на карте: " .. #allChests)
                     
-                    for i, chest in ipairs(chests) do
+                    -- Собираем все найденные сундуки
+                    for i, chest in ipairs(allChests) do
                         if not isRunning then break end
                         if not chest or not chest.Parent then continue end
                         
-                        -- Дополнительная проверка позиции сундука
-                        if chest.Position.Y < 20 or chest.Position.Y > 500 then
-                            print("Сундук " .. i .. " в неправильной позиции, пропускаем")
-                            continue
+                        print("Собираем сундук " .. i .. " на позиции " .. tostring(chest.Position))
+                        
+                        -- Телепортируемся к сундуку
+                        if teleportToChest(chest) then
+                            -- Собираем сундук
+                            local collected = collectChest(chest)
+                            if collected then
+                                print("✓ Сундук " .. i .. " собран")
+                            else
+                                print("✗ Не удалось собрать сундук " .. i)
+                            end
                         end
-                        
-                        print("Собираем сундук " .. i)
-                        local success = collectChestSafely(chest)
-                        
-                        if success then
-                            print("✓ Сундук " .. i .. " собран")
-                        else
-                            print("✗ Ошибка сбора сундука " .. i)
-                        end
-                        
                         wait(1)
                     end
                 else
-                    print("Сундуки не найдены, повторяем поиск...")
+                    print("Сундуков не найдено, ищем лучшую локацию...")
+                    
+                    -- Ищем точку с наибольшим количеством сундуков
+                    local bestLocation, chestCount = findBestChestLocation()
+                    
+                    if bestLocation and chestCount > 0 then
+                        print("Найдена точка с " .. chestCount .. " сундуками, телепортируемся...")
+                        
+                        -- Телепортируемся к лучшей точке
+                        character.HumanoidRootPart.CFrame = CFrame.new(bestLocation)
+                        wait(2)
+                    else
+                        print("Точек с сундуками не найдено, проверяем случайные локации...")
+                        
+                        -- Случайная точка для проверки
+                        local randomPoints = {
+                            Vector3.new(1400, 80, 100),
+                            Vector3.new(-500, 80, 1200),
+                            Vector3.new(-2000, 80, -800),
+                            Vector3.new(500, 80, -1200)
+                        }
+                        
+                        local randomPoint = randomPoints[math.random(1, #randomPoints)]
+                        character.HumanoidRootPart.CFrame = CFrame.new(randomPoint)
+                        wait(3)
+                    end
                 end
                 
-                -- Короткая пауза между циклами
-                wait(2)
+                wait(2) -- Задержка между циклами
             end
             
             print("Фарминг остановлен")
@@ -254,5 +252,5 @@ ChestFarm:AddButton({
 })
 
 ChestFarm:AddSection({ "Информация" })
-ChestFarm:AddParagraph({"Важно:", "Скрипт использует только безопасные точки над картой"})
-ChestFarm:AddParagraph({"Локации:", "Королевство Роз, Остров Усоапа, Ледяная Деревня"})
+ChestFarm:AddParagraph({"Важно:", "Скрипт сначала ищет сундуки, затем телепортируется только к тем точкам, где они есть"})
+ChestFarm:AddParagraph({"Алгоритм:", "1. Сканирует всю карту на наличие сундуков 2. Телепортируется к найденным сундукам 3. Если сундуков нет, ищет лучшую локацию"})
