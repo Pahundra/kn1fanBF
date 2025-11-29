@@ -12,62 +12,11 @@ Window:AddMinimizeButton({
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
--- ... (предыдущие вкладки Info и Фарм сундуков остаются без изменений)
-
 local LevelFarm = Window:MakeTab({ Title = "Фарм lvl", Icon = "rbxassetid://13364900349" })
 
 -- Переменные для управления фармингом уровней
 local isLevelFarming = false
 local currentSea = 1
-local noClipConnection
-local levelFarmThread
-
--- Функция остановки фарма уровней
-function stopLevelFarm()
-    if isLevelFarming then
-        isLevelFarming = false
-        
-        -- Отключаем NoClip
-        if noClipConnection then
-            noClipConnection:Disconnect()
-            noClipConnection = nil
-        end
-        
-        -- Останавливаем поток фарма
-        if levelFarmThread then
-            coroutine.close(levelFarmThread)
-            levelFarmThread = nil
-        end
-        
-        -- Отключаем полет
-        local Players = game:GetService("Players")
-        local localPlayer = Players.LocalPlayer
-        local character = localPlayer.Character
-        
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.PlatformStand = false
-            end
-            
-            local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
-            if bodyVelocity then
-                bodyVelocity:Destroy()
-            end
-            
-            -- Восстанавливаем коллизию
-            for _, part in pairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
-        end
-        
-        print("✅ Фарминг уровней остановлен")
-    else
-        print("❌ Фарминг уровней не был запущен")
-    end
-end
 
 -- Секция для 1 моря
 LevelFarm:AddSection({ "1 Море" })
@@ -144,6 +93,12 @@ LevelFarm:AddButton({
     end
 })
 
+-- Функция остановки фарма уровней
+function stopLevelFarm()
+    isLevelFarming = false
+    print("✅ Фарминг уровней остановлен")
+end
+
 -- Основная функция фарма уровней
 function startLevelFarm()
     local Players = game:GetService("Players")
@@ -152,19 +107,7 @@ function startLevelFarm()
     
     isLevelFarming = true
     
-    -- Функция для включения NoClip
-    local function enableNoClip()
-        local character = localPlayer.Character
-        if not character then return end
-        
-        for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-    
-    -- Функция для включения полета
+    -- Простая функция для включения полета
     local function enableFlight()
         local character = localPlayer.Character
         if not character then return false end
@@ -198,60 +141,15 @@ function startLevelFarm()
         end
     end
     
-    -- Функция для плавного полета к точке
-    local function flyToPosition(targetPosition, speed)
+    -- Функция для телепортации к точке (проще и надежнее чем полет)
+    local function teleportToPosition(targetPosition)
         local character = localPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then
             return false
         end
         
-        local rootPart = character.HumanoidRootPart
-        local bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-        
-        if not bodyVelocity then
-            enableFlight()
-            bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-            if not bodyVelocity then return false end
-        end
-        
-        local startTime = tick()
-        local maxTime = 15
-        
-        while isLevelFarming and character and rootPart do
-            local distance = (targetPosition - rootPart.Position).Magnitude
-            
-            if distance < 10 then
-                break
-            end
-            
-            if tick() - startTime > maxTime then
-                print("⏰ Таймаут полета")
-                break
-            end
-            
-            enableNoClip()
-            
-            -- Вычисляем направление с ускорением на больших расстояниях
-            local direction = (targetPosition - rootPart.Position).Unit
-            local currentSpeed = speed
-            
-            -- Увеличиваем скорость на больших расстояниях
-            if distance > 500 then
-                currentSpeed = speed * 1.5
-            elseif distance > 1000 then
-                currentSpeed = speed * 2
-            end
-            
-            local velocity = direction * math.min(currentSpeed, distance * 2)
-            
-            bodyVelocity.Velocity = velocity
-            wait(0.03)
-        end
-        
-        if bodyVelocity then
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        end
-        
+        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+        wait(1)
         return true
     end
     
@@ -260,375 +158,167 @@ function startLevelFarm()
         return localPlayer.Data.Level.Value
     end
     
-    -- Улучшенная функция для получения информации о квесте на основе уровня
+    -- Простая функция для получения информации о квесте
     local function getQuestInfo(level)
         if currentSea == 1 then
-            -- 1 море - уровни 1-700
             if level < 10 then
                 return {
-                    npcName = "ClassicQuestGiver",
-                    npcDisplayName = "Bandit Quest Giver",
-                    npcPosition = Vector3.new(100, 50, 100),
+                    npcName = "StartQuest",
                     mobName = "Bandit",
-                    mobPositions = {Vector3.new(150, 50, 150), Vector3.new(50, 50, 50)}
+                    npcPosition = Vector3.new(100, 50, 100),
+                    mobPositions = {Vector3.new(150, 50, 150)}
                 }
             elseif level < 20 then
                 return {
-                    npcName = "JungleQuestGiver", 
-                    npcDisplayName = "Monkey Quest Giver",
-                    npcPosition = Vector3.new(-1500, 50, 100),
+                    npcName = "MonkeyQuest",
                     mobName = "Monkey",
-                    mobPositions = {Vector3.new(-1550, 50, 150), Vector3.new(-1450, 50, 50)}
+                    npcPosition = Vector3.new(-1500, 50, 100),
+                    mobPositions = {Vector3.new(-1550, 50, 150)}
                 }
             elseif level < 30 then
                 return {
-                    npcName = "GorillaQuestGiver",
-                    npcDisplayName = "Gorilla Quest Giver",
-                    npcPosition = Vector3.new(-1200, 50, -450),
+                    npcName = "GorillaQuest", 
                     mobName = "Gorilla",
-                    mobPositions = {Vector3.new(-1250, 50, -400), Vector3.new(-1150, 50, -500)}
+                    npcPosition = Vector3.new(-1200, 50, -450),
+                    mobPositions = {Vector3.new(-1250, 50, -400)}
                 }
             elseif level < 40 then
                 return {
-                    npcName = "PirateQuestGiver",
-                    npcDisplayName = "Pirate Quest Giver", 
-                    npcPosition = Vector3.new(-1100, 50, 3800),
+                    npcName = "PirateQuest",
                     mobName = "Pirate",
-                    mobPositions = {Vector3.new(-1150, 50, 3850), Vector3.new(-1050, 50, 3750)}
-                }
-            elseif level < 60 then
-                return {
-                    npcName = "DesertQuestGiver",
-                    npcDisplayName = "Desert Bandit Quest Giver",
-                    npcPosition = Vector3.new(900, 50, 3700),
-                    mobName = "Desert Bandit",
-                    mobPositions = {Vector3.new(850, 50, 3750), Vector3.new(950, 50, 3650)}
-                }
-            elseif level < 75 then
-                return {
-                    npcName = "SnowQuestGiver",
-                    npcDisplayName = "Snow Bandit Quest Giver",
-                    npcPosition = Vector3.new(1100, 150, -4700),
-                    mobName = "Snow Bandit",
-                    mobPositions = {Vector3.new(1050, 150, -4650), Vector3.new(1150, 150, -4750)}
-                }
-            elseif level < 90 then
-                return {
-                    npcName = "MarineQuestGiver",
-                    npcDisplayName = "Marine Quest Giver",
-                    npcPosition = Vector3.new(-4800, 50, 4300),
-                    mobName = "Marine",
-                    mobPositions = {Vector3.new(-4850, 50, 4350), Vector3.new(-4750, 50, 4250)}
-                }
-            elseif level < 120 then
-                return {
-                    npcName = "SkyQuestGiver",
-                    npcDisplayName = "Sky Bandit Quest Giver",
-                    npcPosition = Vector3.new(-4600, 700, -2600),
-                    mobName = "Sky Bandit",
-                    mobPositions = {Vector3.new(-4650, 700, -2550), Vector3.new(-4550, 700, -2650)}
+                    npcPosition = Vector3.new(-1100, 50, 3800),
+                    mobPositions = {Vector3.new(-1150, 50, 3850)}
                 }
             else
                 return {
-                    npcName = "PrisonQuestGiver",
-                    npcDisplayName = "Prisoner Quest Giver",
-                    npcPosition = Vector3.new(4800, 50, -2200),
-                    mobName = "Prisoner",
-                    mobPositions = {Vector3.new(4750, 50, -2150), Vector3.new(4850, 50, -2250)}
+                    npcName = "DesertQuest",
+                    mobName = "Desert Bandit", 
+                    npcPosition = Vector3.new(900, 50, 3700),
+                    mobPositions = {Vector3.new(850, 50, 3750)}
                 }
             end
-        
         elseif currentSea == 2 then
-            -- 2 море - уровни 700-1500
             if level < 750 then
                 return {
-                    npcName = "RoseQuestGiver",
-                    npcDisplayName = "Kingdom of Rose Quest Giver",
+                    npcName = "MarineCaptain",
+                    mobName = "Marine Captain",
                     npcPosition = Vector3.new(1400, 80, 100),
-                    mobName = "Raider",
-                    mobPositions = {Vector3.new(1350, 80, 150), Vector3.new(1450, 80, 50)}
+                    mobPositions = {Vector3.new(1350, 80, 150)}
                 }
-            elseif level < 800 then
+            else
                 return {
-                    npcName = "UsoapQuestGiver",
-                    npcDisplayName = "Usoap's Island Quest Giver",
+                    npcName = "GalleyCaptain",
+                    mobName = "Galley Captain",
                     npcPosition = Vector3.new(-500, 80, 1200),
-                    mobName = "Mercenary",
-                    mobPositions = {Vector3.new(-550, 80, 1250), Vector3.new(-450, 80, 1150)}
-                }
-            else
-                return {
-                    npcName = "GreenZoneQuestGiver",
-                    npcDisplayName = "Green Zone Quest Giver",
-                    npcPosition = Vector3.new(-1500, 80, 100),
-                    mobName = "Swan Pirate",
-                    mobPositions = {Vector3.new(-1550, 80, 150), Vector3.new(-1450, 80, 50)}
+                    mobPositions = {Vector3.new(-550, 80, 1250)}
                 }
             end
-        
         elseif currentSea == 3 then
-            -- 3 море - уровни 1500+
-            if level < 1550 then
-                return {
-                    npcName = "PortTownQuestGiver",
-                    npcDisplayName = "Port Town Quest Giver",
-                    npcPosition = Vector3.new(-5000, 80, -5000),
-                    mobName = "Pirate Millionaire",
-                    mobPositions = {Vector3.new(-5050, 80, -4950), Vector3.new(-4950, 80, -5050)}
-                }
-            elseif level < 1600 then
-                return {
-                    npcName = "HydraQuestGiver",
-                    npcDisplayName = "Hydra Island Quest Giver",
-                    npcPosition = Vector3.new(-3000, 80, -6000),
-                    mobName = "Dragon Crew Archer",
-                    mobPositions = {Vector3.new(-3050, 80, -5950), Vector3.new(-2950, 80, -6050)}
-                }
-            else
-                return {
-                    npcName = "GreatTreeQuestGiver",
-                    npcDisplayName = "Great Tree Quest Giver",
-                    npcPosition = Vector3.new(-1000, 80, -7000),
-                    mobName = "Dragon Crew Warrior",
-                    mobPositions = {Vector3.new(-1050, 80, -6950), Vector3.new(-950, 80, -7050)}
-                }
-            end
+            return {
+                npcName = "PirateMillionaire",
+                mobName = "Pirate Millionaire",
+                npcPosition = Vector3.new(-5000, 80, -5000),
+                mobPositions = {Vector3.new(-5050, 80, -4950)}
+            }
         end
     end
     
-    -- Улучшенная функция для поиска NPC по имени с проверкой на острове
+    -- Функция для поиска NPC
     local function findNPC(npcName)
-        local character = localPlayer.Character
-        if not character then return nil end
-        
-        local currentPosition = character.HumanoidRootPart.Position
-        local closestNPC = nil
-        local closestDistance = math.huge
-        
-        -- Ищем в разных возможных местах
-        local locations = {
-            workspace.NPCs,
-            workspace.Live,
-            workspace
-        }
-        
-        for _, location in ipairs(locations) do
-            for _, npc in pairs(location:GetChildren()) do
-                if npc:FindFirstChild("HumanoidRootPart") then
-                    -- Проверяем различные варианты имен NPC
-                    local nameMatch = npc.Name:lower():find(npcName:lower()) or 
-                                     (npc:FindFirstChild("Quest") and npc.Quest.Value:lower():find(npcName:lower()))
-                    
-                    if nameMatch then
-                        local distance = (npc.HumanoidRootPart.Position - currentPosition).Magnitude
-                        
-                        -- Предпочитаем NPC которые ближе и на том же острове
-                        if distance < closestDistance then
-                            closestNPC = npc
-                            closestDistance = distance
-                        end
-                    end
-                end
+        for _, npc in pairs(workspace.NPCs:GetChildren()) do
+            if string.find(npc.Name:lower(), npcName:lower()) then
+                return npc
             end
         end
-        
-        return closestNPC
+        return nil
     end
     
-    -- Функция для проверки активного квеста
-    local function hasActiveQuest()
-        -- Проверяем, есть ли активный квест у игрока
-        local playerGui = localPlayer:FindFirstChild("PlayerGui")
-        if playerGui then
-            for _, gui in pairs(playerGui:GetChildren()) do
-                if gui:FindFirstChild("Quest") then
-                    return true
-                end
+    -- Функция для поиска мобов
+    local function findMobs(mobName)
+        local mobs = {}
+        for _, mob in pairs(workspace.Enemies:GetChildren()) do
+            if string.find(mob.Name:lower(), mobName:lower()) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                table.insert(mobs, mob)
             end
         end
-        return false
+        return mobs
     end
     
     -- Функция для взятия квеста
     local function takeQuest(questInfo)
-        local character = localPlayer.Character
-        if not character then return false end
+        print("Пытаемся взять квест...")
         
-        -- Сначала проверяем, есть ли уже активный квест
-        if hasActiveQuest() then
-            print("📋 Уже есть активный квест, пропускаем взятие")
-            return true
-        end
+        -- Телепортируемся к NPC
+        teleportToPosition(questInfo.npcPosition)
         
-        print("🛫 Ищем NPC: " .. questInfo.npcDisplayName)
-        
-        -- Сначала ищем NPC на текущем острове
+        -- Ищем NPC
         local npc = findNPC(questInfo.npcName)
-        
         if npc then
-            print("✅ Нашли NPC на текущем острове: " .. npc.Name)
+            -- Подходим ближе к NPC
+            teleportToPosition(npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0))
             
-            -- Летим к найденному NPC
-            local npcPosition = npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0)
-            local flySuccess = flyToPosition(npcPosition, 100)
+            -- Берем квест
+            local args = {
+                [1] = "StartQuest",
+                [2] = npc.Name
+            }
             
-            if flySuccess then
-                wait(1)
-                
-                -- Активируем диалог с NPC
-                local args = {
-                    [1] = npc.Name,
-                    [2] = "StartQuest"
-                }
-                
-                -- Пытаемся взять квест через RemoteEvent
-                pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                end)
-                
-                wait(1)
-                return true
-            end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+            end)
+            
+            print("Квест взят!")
+            return true
         else
-            print("❌ NPC не найден на текущем острове, летим к запасной позиции")
-            
-            -- Летим к запасной позиции
-            local flySuccess = flyToPosition(questInfo.npcPosition, 150)
-            
-            if flySuccess then
-                wait(1)
-                
-                -- Снова ищем NPC после перелета
-                npc = findNPC(questInfo.npcName)
-                if npc then
-                    print("✅ Нашли NPC после перелета: " .. npc.Name)
-                    
-                    -- Подлетаем ближе к NPC
-                    local npcPosition = npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0)
-                    flyToPosition(npcPosition, 50)
-                    wait(0.5)
-                    
-                    -- Активируем диалог с NPC
-                    local args = {
-                        [1] = npc.Name,
-                        [2] = "StartQuest"
-                    }
-                    
-                    pcall(function()
-                        ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                    end)
-                    
-                    wait(1)
-                    return true
-                else
-                    print("❌ NPC не найден даже после перелета")
-                end
-            end
+            print("NPC не найден")
+            return false
         end
-        
-        return false
     end
     
-    -- Функция для поиска мобов на текущем острове
-    local function findMobs(mobName)
-        local mobs = {}
-        local character = localPlayer.Character
-        if not character then return mobs end
-        
-        local currentPosition = character.HumanoidRootPart.Position
-        
-        -- Ищем в разных возможных местах
-        local locations = {
-            workspace.Enemies,
-            workspace.Live,
-            workspace.Mobs,
-            workspace
-        }
-        
-        for _, location in ipairs(locations) do
-            for _, mob in pairs(location:GetChildren()) do
-                if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and mob:FindFirstChild("HumanoidRootPart") then
-                    if mob.Name:lower():find(mobName:lower()) then
-                        local distance = (mob.HumanoidRootPart.Position - currentPosition).Magnitude
-                        -- Добавляем только мобов на том же острове (в радиусе 500)
-                        if distance < 500 then
-                            table.insert(mobs, mob)
-                        end
-                    end
-                end
-            end
-        end
-        
-        return mobs
-    end
-    
-    -- Функция для атаки мобов на текущем острове
+    -- Функция для атаки мобов
     local function attackMobs(questInfo)
-        local character = localPlayer.Character
-        if not character then return false end
-        
-        print("🔍 Ищем мобов на текущем острове: " .. questInfo.mobName)
+        print("Начинаем фармить мобов: " .. questInfo.mobName)
         
         local mobsKilled = 0
-        local maxMobs = 10 -- Количество мобов для квеста
-        local attempts = 0
-        local maxAttempts = 5
+        local maxMobs = 5
         
-        while isLevelFarming and mobsKilled < maxMobs and attempts < maxAttempts do
-            local character = localPlayer.Character
-            if not character then break end
+        while isLevelFarming and mobsKilled < maxMobs do
+            -- Телепортируемся к зоне мобов
+            teleportToPosition(questInfo.mobPositions[1])
             
-            -- Ищем мобов на текущем острове
+            -- Ищем мобов
             local mobs = findMobs(questInfo.mobName)
             
             if #mobs > 0 then
-                -- Сортируем по расстоянию
-                table.sort(mobs, function(a, b)
-                    local aDist = (a.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
-                    local bDist = (b.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
-                    return aDist < bDist
-                end)
-                
-                local targetMob = mobs[1]
-                print("⚔️ Атакуем моба: " .. targetMob.Name)
-                
-                -- Летим к мобу на безопасное расстояние
-                local attackPosition = targetMob.HumanoidRootPart.Position + Vector3.new(10, 5, 10)
-                flyToPosition(attackPosition, 80)
-                
-                -- Используем фрукт для атаки
-                useFruitAttack(targetMob)
-                
-                -- Ждем смерти моба
-                local mobAlive = true
-                local attackTime = tick()
-                
-                while mobAlive and isLevelFarming and (tick() - attackTime < 10) do
-                    if not targetMob or not targetMob.Parent or targetMob.Humanoid.Health <= 0 then
-                        mobAlive = false
-                        mobsKilled = mobsKilled + 1
-                        print("✅ Моб убит! Всего: " .. mobsKilled .. "/" .. maxMobs)
-                        break
+                for _, mob in pairs(mobs) do
+                    if not isLevelFarming then break end
+                    
+                    -- Телепортируемся к мобу
+                    teleportToPosition(mob.HumanoidRootPart.Position + Vector3.new(5, 5, 5))
+                    
+                    -- Атакуем моба
+                    useFruitAttack(mob)
+                    
+                    -- Ждем смерти моба
+                    local timeout = 0
+                    while mob and mob.Parent and mob.Humanoid.Health > 0 and timeout < 50 do
+                        useFruitAttack(mob)
+                        wait(0.1)
+                        timeout = timeout + 1
                     end
                     
-                    -- Продолжаем атаковать
-                    useFruitAttack(targetMob)
-                    wait(0.5)
+                    if not mob or not mob.Parent or mob.Humanoid.Health <= 0 then
+                        mobsKilled = mobsKilled + 1
+                        print("Моб убит! " .. mobsKilled .. "/" .. maxMobs)
+                    end
+                    
+                    if mobsKilled >= maxMobs then
+                        break
+                    end
                 end
-                
-                attempts = 0 -- Сбрасываем счетчик попыток при успешной атаке
             else
-                attempts = attempts + 1
-                print("🔍 Мобов не найдено, попытка " .. attempts .. "/" .. maxAttempts)
-                
-                -- Если мобов нет, немного перемещаемся по острову
-                if questInfo.mobPositions and #questInfo.mobPositions > 0 then
-                    local randomPos = questInfo.mobPositions[math.random(1, #questInfo.mobPositions)]
-                    flyToPosition(randomPos, 100)
-                    wait(1)
-                else
-                    wait(2)
-                end
+                print("Мобов не найдено, ждем...")
+                wait(2)
             end
             
             wait(0.5)
@@ -637,13 +327,10 @@ function startLevelFarm()
         return mobsKilled >= maxMobs
     end
     
-    -- Функция для использования атаки фрукта
+    -- Функция для использования атаки
     local function useFruitAttack(target)
         local character = localPlayer.Character
         if not character or not target then return end
-        
-        -- Включаем NoClip для безопасности
-        enableNoClip()
         
         -- Ищем фрукт в инвентаре
         local backpack = localPlayer.Backpack
@@ -653,44 +340,40 @@ function startLevelFarm()
         
         -- Пытаемся найти фрукт
         for _, tool in pairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and (tool.Name:find("Fruit") or tool.Name:find("Blox")) then
+            if tool:IsA("Tool") and (string.find(tool.Name:lower(), "fruit") or string.find(tool.Name:lower(), "blox")) then
                 -- Берем инструмент в руки
                 humanoid:EquipTool(tool)
                 wait(0.2)
                 
-                -- Используем Z атаку (основная атака)
-                local args = {
+                -- Используем атаки
+                local argsZ = {
                     [1] = "Z",
                     [2] = target.HumanoidRootPart.Position
                 }
                 
-                pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                end)
-                
-                -- Используем X атаку (вторая атака)
-                local args2 = {
-                    [1] = "X",
+                local argsX = {
+                    [1] = "X", 
                     [2] = target.HumanoidRootPart.Position
                 }
                 
                 pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args2))
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(argsZ))
+                    wait(0.1)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(argsX))
                 end)
                 
                 break
             end
         end
         
-        -- Базовая атака мечом (если фрукта нет)
+        -- Атака мечом как запасной вариант
         for _, tool in pairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name:find("Sword") then
+            if tool:IsA("Tool") and string.find(tool.Name:lower(), "sword") then
                 humanoid:EquipTool(tool)
                 wait(0.2)
                 
-                -- Атака мечом
+                -- Имитируем клик для атаки
                 mouse1click()
-                wait(0.1)
                 break
             end
         end
@@ -698,53 +381,36 @@ function startLevelFarm()
     
     -- Функция для сдачи квеста
     local function completeQuest(questInfo)
-        local character = localPlayer.Character
-        if not character then return false end
+        print("Сдаем квест...")
         
-        print("📤 Сдаем квест...")
+        -- Телепортируемся обратно к NPC
+        teleportToPosition(questInfo.npcPosition)
         
-        -- Ищем NPC для сдачи квеста
+        -- Ищем NPC
         local npc = findNPC(questInfo.npcName)
-        
         if npc then
-            print("✅ Нашли NPC для сдачи квеста: " .. npc.Name)
+            -- Подходим ближе
+            teleportToPosition(npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0))
             
-            -- Летим к NPC
-            local npcPosition = npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0)
-            local flySuccess = flyToPosition(npcPosition, 100)
+            -- Сдаем квест
+            local args = {
+                [1] = "EndQuest",
+                [2] = npc.Name
+            }
             
-            if flySuccess then
-                wait(1)
-                
-                -- Сдаем квест
-                local args = {
-                    [1] = npc.Name,
-                    [2] = "EndQuest"
-                }
-                
-                pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                end)
-                
-                wait(1)
-                return true
-            end
-        else
-            print("❌ NPC для сдачи квеста не найден")
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+            end)
+            
+            print("Квест сдан!")
+            return true
         end
         
         return false
     end
     
-    -- Автоматическое обновление NoClip
-    noClipConnection = game:GetService("RunService").Stepped:Connect(function()
-        if isLevelFarming and localPlayer.Character then
-            enableNoClip()
-        end
-    end)
-    
-    -- Основной цикл фарма уровней
-    levelFarmThread = coroutine.create(function()
+    -- Основной цикл фарма
+    spawn(function()
         print("🚀 Запускаем фарминг уровней на " .. currentSea .. " море...")
         
         while isLevelFarming do
@@ -756,36 +422,28 @@ function startLevelFarm()
             
             if not character or not character:FindFirstChild("HumanoidRootPart") then
                 wait(1)
-                coroutine.yield()
+                continue
             end
             
-            -- Включаем полет
+            -- Включаем полет для безопасности
             enableFlight()
-            enableNoClip()
             
             local playerLevel = getPlayerLevel()
-            print("📊 Текущий уровень: " .. playerLevel)
+            print("Текущий уровень: " .. playerLevel)
             
-            -- Получаем информацию о квесте для текущего уровня
+            -- Получаем информацию о квесте
             local questInfo = getQuestInfo(playerLevel)
             
             if questInfo then
-                print("🎯 Начинаем квест: " .. questInfo.npcDisplayName .. " (Мобы: " .. questInfo.mobName .. ")")
+                print("Начинаем квест: " .. questInfo.mobName)
                 
                 -- Берем квест
                 if takeQuest(questInfo) then
-                    print("✅ Квест взят, начинаем фарм мобов...")
-                    
                     -- Фармим мобов
                     if attackMobs(questInfo) then
-                        print("🎉 Все мобы убиты, сдаем квест...")
-                        
                         -- Сдаем квест
-                        if completeQuest(questInfo) then
-                            print("🏆 Квест успешно сдан!")
-                        else
-                            print("❌ Не удалось сдать квест")
-                        end
+                        completeQuest(questInfo)
+                        print("✅ Цикл квеста завершен!")
                     else
                         print("❌ Не удалось убить всех мобов")
                     end
@@ -796,25 +454,15 @@ function startLevelFarm()
                 print("❌ Не найден подходящий квест для уровня " .. playerLevel)
             end
             
-            wait(2)
-            coroutine.yield()
+            wait(3)
         end
         
-        -- Очистка при остановке
-        if noClipConnection then
-            noClipConnection:Disconnect()
-            noClipConnection = nil
-        end
+        -- Отключаем полет при остановке
         disableFlight()
-        
         print("🛑 Фарминг уровней остановлен")
     end)
-    
-    -- Запускаем поток
-    coroutine.resume(levelFarmThread)
 end
 
 LevelFarm:AddSection({ "Информация" })
-LevelFarm:AddParagraph({"Улучшения:", "• Умный поиск NPC на текущем острове • Не улетает в море • Проверка активных квестов"})
-LevelFarm:AddParagraph({"Логика:", "• Сначала ищет NPC рядом • Только при необходимости летит к запасной позиции • Фармит мобов на текущем острове"})
-LevelFarm:AddParagraph({"Безопасность:", "• NoClip защита • Плавный полет • Автоотключение при остановке"})
+LevelFarm:AddParagraph({"Упрощенная версия:", "• Телепортация вместо полета • Простой поиск NPC • Базовая атака"})
+LevelFarm:AddParagraph({"Как использовать:", "1. Встаньте на острове 2. Включите фарм 3. Скрипт будет брать и выполнять квесты"})
