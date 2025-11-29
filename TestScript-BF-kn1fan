@@ -17,6 +17,12 @@ local LevelFarm = Window:MakeTab({ Title = "Фарм lvl", Icon = "rbxassetid://
 -- Переменные для управления фармингом уровней
 local isLevelFarming = false
 local currentSea = 1
+local currentQuest = nil
+local playerStats = {
+    hasFruit = false,
+    hasSword = false,
+    currentWeapon = nil
+}
 
 -- Секции для разных морей
 LevelFarm:AddSection({ "1 Море" })
@@ -43,231 +49,646 @@ LevelFarm:AddButton({
     end
 })
 
--- Аналогично добавьте кнопки для 2 и 3 моря...
-
 -- Функция остановки фарма уровней
 function stopLevelFarm()
     isLevelFarming = false
     print("✅ Фарминг уровней остановлен")
 end
 
--- Улучшенная функция для безопасного полета
-local function safeFlyToPosition(targetPosition, speed)
-    local Players = game:GetService("Players")
-    local localPlayer = Players.LocalPlayer
-    local character = localPlayer.Character
+-- Функция для проверки инвентаря и определения оружия
+local function updatePlayerStats()
+    local localPlayer = game:GetService("Players").LocalPlayer
+    playerStats.hasFruit = false
+    playerStats.hasSword = false
+    playerStats.currentWeapon = nil
     
+    -- Проверяем фрукты
+    if localPlayer.Character then
+        -- Проверяем наличие фрукта в бэкпаке
+        local backpack = localPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    -- Проверяем, является ли предмет фруктом (обычно у фруктов есть специальные атрибуты)
+                    if string.find(string.lower(item.Name), "fruit") or 
+                       item:FindFirstChild("Fruit") or 
+                       item:FindFirstChild("DevilFruit") then
+                        playerStats.hasFruit = true
+                        playerStats.currentWeapon = "fruit"
+                        break
+                    end
+                end
+            end
+        end
+        
+        -- Если фрукта нет, проверяем мечи
+        if not playerStats.hasFruit then
+            if backpack then
+                for _, item in pairs(backpack:GetChildren()) do
+                    if item:IsA("Tool") then
+                        -- Проверяем, является ли предмет мечом
+                        if string.find(string.lower(item.Name), "sword") or 
+                           string.find(string.lower(item.Name), "blade") or
+                           item:FindFirstChild("Sword") then
+                            playerStats.hasSword = true
+                            playerStats.currentWeapon = "sword"
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Проверяем экипированное оружие
+        local character = localPlayer.Character
+        for _, item in pairs(character:GetChildren()) do
+            if item:IsA("Tool") then
+                if string.find(string.lower(item.Name), "fruit") or 
+                   item:FindFirstChild("Fruit") then
+                    playerStats.hasFruit = true
+                    playerStats.currentWeapon = "fruit"
+                elseif string.find(string.lower(item.Name), "sword") or 
+                       string.find(string.lower(item.Name), "blade") then
+                    playerStats.hasSword = true
+                    playerStats.currentWeapon = "sword"
+                end
+            end
+        end
+    end
+    
+    print("🎒 Статистика оружия - Фрукт: " .. tostring(playerStats.hasFruit) .. ", Меч: " .. tostring(playerStats.hasSword) .. ", Текущее: " .. tostring(playerStats.currentWeapon))
+end
+
+-- Функция для автовыбора оружия
+local function autoSelectWeapon()
+    updatePlayerStats()
+    
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
+    if not character then return end
+    
+    -- Приоритет: фрукт > меч
+    if playerStats.hasFruit then
+        -- Ищем фрукт в бэкпаке и экипируем
+        local backpack = localPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and (string.find(string.lower(item.Name), "fruit") or item:FindFirstChild("Fruit")) then
+                    -- Экипируем фрукт
+                    character.Humanoid:EquipTool(item)
+                    playerStats.currentWeapon = "fruit"
+                    print("🔮 Экипирован фрукт: " .. item.Name)
+                    return true
+                end
+            end
+        end
+    elseif playerStats.hasSword then
+        -- Ищем меч в бэкпаке и экипируем
+        local backpack = localPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and (string.find(string.lower(item.Name), "sword") or string.find(string.lower(item.Name), "blade")) then
+                    -- Экипируем меч
+                    character.Humanoid:EquipTool(item)
+                    playerStats.currentWeapon = "sword"
+                    print("⚔️ Экипирован меч: " .. item.Name)
+                    return true
+                end
+            end
+        end
+    end
+    
+    print("❌ Не найдено подходящего оружия")
+    return false
+end
+
+-- Функция для атаки моба
+local function attackMob(mob)
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") or not mob:FindFirstChild("Humanoid") then
+        return false
+    end
+    
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
         return false
     end
     
+    -- Автовыбор оружия перед атакой
+    if not autoSelectWeapon() then
+        print("❌ Не удалось выбрать оружие для атаки")
+        return false
+    end
+    
     local rootPart = character.HumanoidRootPart
+    local mobRoot = mob.HumanoidRootPart
     
-    -- Включаем NoClip
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide then
-            part.CanCollide = false
-        end
+    -- Подлетаем к мобу на дистанцию атаки
+    local attackDistance = 20
+    local currentDistance = (mobRoot.Position - rootPart.Position).Magnitude
+    
+    if currentDistance > attackDistance then
+        safeFlyToPosition(mobRoot.Position + Vector3.new(0, 5, 0), 100)
     end
     
-    -- Создаем BodyVelocity для полета
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
-    bodyVelocity.Parent = rootPart
+    -- Поворачиваемся к мобу
+    rootPart.CFrame = CFrame.new(rootPart.Position, Vector3.new(mobRoot.Position.X, rootPart.Position.Y, mobRoot.Position.Z))
     
-    local startPos = rootPart.Position
-    local distance = (targetPosition - startPos).Magnitude
-    local maxTime = math.min(30, distance / speed + 10) -- Динамический таймаут
-    
-    print("🛫 Начинаем полет к цели. Дистанция: " .. math.floor(distance))
-    
-    local startTime = tick()
-    
-    while isLevelFarming and character and rootPart and bodyVelocity.Parent do
-        local currentPos = rootPart.Position
-        local currentDistance = (targetPosition - currentPos).Magnitude
-        
-        -- Проверяем, достигли ли цели
-        if currentDistance < 10 then
-            print("✅ Достигли цели")
-            break
-        end
-        
-        -- Проверяем таймаут
-        if tick() - startTime > maxTime then
-            print("⏰ Таймаут полета")
-            break
-        end
-        
-        -- Проверяем безопасность позиции
-        if currentPos.Y < -100 or currentPos.Y > 1000 then
-            print("⚠️ Небезопасная высота: " .. currentPos.Y)
-            -- Корректируем высоту
-            local correctedPos = Vector3.new(targetPosition.X, math.max(20, targetPosition.Y), targetPosition.Z)
-            targetPosition = correctedPos
-        end
-        
-        -- Вычисляем направление
-        local direction = (targetPosition - currentPos).Unit
-        local adjustedSpeed = math.min(speed, currentDistance * 2) -- Замедляемся при приближении
-        
-        bodyVelocity.Velocity = direction * adjustedSpeed
-        
-        wait()
+    -- Логика атаки в зависимости от оружия
+    if playerStats.currentWeapon == "fruit" then
+        -- Атака фруктом
+        return useFruitAttack(mob)
+    elseif playerStats.currentWeapon == "sword" then
+        -- Атака мечом
+        return useSwordAttack(mob)
+    else
+        -- Базовая атака (если нет оружия)
+        return useBasicAttack(mob)
     end
-    
-    -- Плавно останавливаемся
-    if bodyVelocity and bodyVelocity.Parent then
-        for i = 1, 5 do
-            bodyVelocity.Velocity = bodyVelocity.Velocity * 0.5
-            wait(0.1)
-        end
-        bodyVelocity:Destroy()
-    end
-    
-    return true
 end
 
--- Улучшенная функция для поиска NPC
-local function findNPC(npcName)
-    -- Сначала ищем в NPCs
-    local npcFolder = workspace:FindFirstChild("NPCs")
-    if npcFolder then
-        for _, npc in pairs(npcFolder:GetChildren()) do
-            if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-                if string.lower(npc.Name) == string.lower(npcName) or 
-                   string.find(string.lower(npc.Name), string.lower(npcName)) then
-                    return npc
+-- Функция для атаки фруктом
+local function useFruitAttack(mob)
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
+    
+    if not character then return false end
+    
+    -- Ищем экипированный фрукт
+    local fruitTool = nil
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") and (string.find(string.lower(tool.Name), "fruit") or tool:FindFirstChild("Fruit")) then
+            fruitTool = tool
+            break
+        end
+    end
+    
+    if not fruitTool then
+        print("❌ Фрукт не экипирован")
+        return false
+    end
+    
+    -- Активируем атаки фрукта
+    local success = false
+    
+    -- Пытаемся использовать различные атаки фрукта
+    local attacks = {"Click", "Attack", "Z", "X", "C", "V", "F"}
+    
+    for _, attackName in pairs(attacks) do
+        if not isLevelFarming then break end
+        
+        local attackEvent = fruitTool:FindFirstChild(attackName)
+        if attackEvent and attackEvent:IsA("RemoteEvent") then
+            -- Активируем атаку
+            pcall(function()
+                attackEvent:FireServer()
+                print("🔮 Использована атака фрукта: " .. attackName)
+                success = true
+            end)
+            
+            wait(0.5)
+            
+            -- Проверяем, умер ли моб
+            if not mob or not mob.Parent or not mob:FindFirstChild("Humanoid") or mob.Humanoid.Health <= 0 then
+                break
+            end
+        end
+    end
+    
+    return success
+end
+
+-- Функция для атаки мечом
+local function useSwordAttack(mob)
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
+    
+    if not character then return false end
+    
+    -- Ищем экипированный меч
+    local swordTool = nil
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") and (string.find(string.lower(tool.Name), "sword") or string.find(string.lower(tool.Name), "blade")) then
+            swordTool = tool
+            break
+        end
+    end
+    
+    if not swordTool then
+        print("❌ Меч не экипирован")
+        return false
+    end
+    
+    -- Активируем атаки меча
+    local success = false
+    
+    -- Пытаемся использовать различные атаки меча
+    local attacks = {"Click", "Attack", "MouseButton1", "SwordSlash"}
+    
+    for _, attackName in pairs(attacks) do
+        if not isLevelFarming then break end
+        
+        local attackEvent = swordTool:FindFirstChild(attackName)
+        if attackEvent and attackEvent:IsA("RemoteEvent") then
+            -- Активируем атаку
+            pcall(function()
+                attackEvent:FireServer()
+                print("⚔️ Использована атака меча: " .. attackName)
+                success = true
+            end)
+            
+            wait(0.3)
+            
+            -- Проверяем, умер ли моб
+            if not mob or not mob.Parent or not mob:FindFirstChild("Humanoid") or mob.Humanoid.Health <= 0 then
+                break
+            end
+        end
+    end
+    
+    return success
+end
+
+-- Функция для базовой атаки (если нет оружия)
+local function useBasicAttack(mob)
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
+    
+    if not character then return false end
+    
+    -- Используем базовую атаку (punches)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        -- Активируем атаку через Humanoid
+        pcall(function()
+            -- Пытаемся найти RemoteEvent для атаки
+            local attackEvent = game:GetService("ReplicatedStorage"):FindFirstChild("CombatRemote")
+            if attackEvent and attackEvent:IsA("RemoteEvent") then
+                attackEvent:FireServer(mob)
+            end
+        end)
+        
+        print("👊 Использована базовая атака")
+        return true
+    end
+    
+    return false
+end
+
+-- Функция для взятия квеста через RemoteEvents
+local function takeQuest(questInfo)
+    print("📝 Пытаемся взять квест у " .. questInfo.npcName)
+    
+    -- Летим к NPC
+    local npcTargetPosition = questInfo.npcPosition + Vector3.new(0, 5, 0)
+    local flySuccess = safeFlyToPosition(npcTargetPosition, 120)
+    
+    if flySuccess then
+        wait(2)
+        
+        -- Ищем NPC снова для подтверждения
+        local npc = findNPC(questInfo.npcName)
+        if npc then
+            print("✅ Подошли к NPC: " .. npc.Name)
+            
+            -- Пытаемся взять квест через различные RemoteEvents
+            local remoteNames = {
+                "StartQuest",
+                "TakeQuest",
+                "QuestRemote",
+                "AcceptQuest",
+                "TalkQuest"
+            }
+            
+            local questTaken = false
+            
+            for _, remoteName in pairs(remoteNames) do
+                if questTaken then break end
+                
+                -- Ищем RemoteEvent в ReplicatedStorage
+                local remote = game:GetService("ReplicatedStorage"):FindFirstChild(remoteName)
+                if remote and remote:IsA("RemoteEvent") then
+                    pcall(function()
+                        remote:FireServer(questInfo.npcName)
+                        print("✅ Отправлен запрос на квест через: " .. remoteName)
+                        questTaken = true
+                    end)
+                end
+                
+                -- Ищем RemoteEvent в NPC
+                local npcRemote = npc:FindFirstChild(remoteName)
+                if npcRemote and npcRemote:IsA("RemoteEvent") then
+                    pcall(function()
+                        npcRemote:FireServer()
+                        print("✅ Отправлен запрос на квест через NPC: " .. remoteName)
+                        questTaken = true
+                    end)
+                end
+            end
+            
+            if questTaken then
+                currentQuest = questInfo
+                print("✅ Квест успешно взят: " .. questInfo.npcName)
+                return true
+            else
+                print("❌ Не удалось найти RemoteEvent для взятия квеста")
+                return false
+            end
+        else
+            print("❌ NPC исчез после подлета")
+            return false
+        end
+    else
+        print("❌ Не удалось подлететь к NPC")
+        return false
+    end
+end
+
+-- Функция для проверки выполнения квеста
+local function checkQuestProgress()
+    local localPlayer = game:GetService("Players").LocalPlayer
+    
+    if not currentQuest then
+        return false
+    end
+    
+    -- Проверяем прогресс квеста через PlayerGui
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        -- Ищем интерфейс квеста
+        for _, screenGui in pairs(playerGui:GetChildren()) do
+            if screenGui:IsA("ScreenGui") then
+                -- Ищем элементы, указывающие на прогресс квеста
+                local questText = findQuestText(screenGui)
+                if questText then
+                    -- Анализируем текст квеста
+                    local mobName = currentQuest.mobName
+                    if string.find(string.lower(questText), string.lower(mobName)) then
+                        -- Ищем числа в тексте (прогресс)
+                        local numbers = {}
+                        for number in string.gmatch(questText, "%d+") do
+                            table.insert(numbers, tonumber(number))
+                        end
+                        
+                        if #numbers >= 2 then
+                            local current = numbers[1]
+                            local required = numbers[2]
+                            
+                            if current >= required then
+                                print("✅ Квест выполнен! " .. current .. "/" .. required)
+                                return true
+                            else
+                                print("📊 Прогресс квеста: " .. current .. "/" .. required)
+                                return false
+                            end
+                        end
+                    end
                 end
             end
         end
     end
     
-    -- Ищем во всем workspace
-    for _, npc in pairs(workspace:GetChildren()) do
-        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-            local humanoid = npc:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                if string.lower(npc.Name) == string.lower(npcName) or 
-                   string.find(string.lower(npc.Name), string.lower(npcName)) then
-                    return npc
-                end
-            end
+    -- Альтернативная проверка через данные игрока
+    if localPlayer:FindFirstChild("Data") then
+        local data = localPlayer.Data
+        -- Проверяем различные возможные места хранения прогресса квеста
+        local questProgress = data:FindFirstChild("QuestProgress") or 
+                             data:FindFirstChild("CurrentQuest") or
+                             data:FindFirstChild("Quest")
+        
+        if questProgress then
+            -- Логика проверки прогресса через данные
+            print("📊 Прогресс квеста в данных: " .. tostring(questProgress.Value))
+            -- Здесь нужно адаптировать под конкретную структуру данных игры
+        end
+    end
+    
+    return false
+end
+
+-- Вспомогательная функция для поиска текста квеста в интерфейсе
+local function findQuestText(guiObject)
+    if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
+        local text = string.lower(guiObject.Text)
+        if string.find(text, "quest") or string.find(text, "квест") or 
+           string.find(text, "mission") or string.find(text, "задание") then
+            return guiObject.Text
+        end
+    end
+    
+    for _, child in pairs(guiObject:GetChildren()) do
+        local result = findQuestText(child)
+        if result then
+            return result
         end
     end
     
     return nil
 end
 
--- Улучшенная функция получения информации о квесте
-local function getQuestInfo(level)
-    local questData = {
-        npcName = "",
-        mobName = "",
-        npcPosition = nil,
-        mobPositions = {}
-    }
-    
-    if currentSea == 1 then
-        if level < 10 then
-            questData.npcName = "Bandit"
-            questData.mobName = "Bandit"
-        elseif level < 20 then
-            questData.npcName = "Monkey"
-            questData.mobName = "Monkey"
-        elseif level < 30 then
-            questData.npcName = "Gorilla"
-            questData.mobName = "Gorilla"
-        elseif level < 40 then
-            questData.npcName = "Pirate"
-            questData.mobName = "Pirate"
-        else
-            questData.npcName = "Desert Bandit"
-            questData.mobName = "Desert Bandit"
-        end
-    elseif currentSea == 2 then
-        if level < 750 then
-            questData.npcName = "Marine Captain"
-            questData.mobName = "Marine Captain"
-        else
-            questData.npcName = "Galley Captain"
-            questData.mobName = "Galley Captain"
-        end
-    elseif currentSea == 3 then
-        questData.npcName = "Pirate Millionaire"
-        questData.mobName = "Pirate Millionaire"
+-- Функция для сдачи квеста
+local function completeQuest()
+    if not currentQuest then
+        return false
     end
     
-    -- Находим реальное местоположение NPC
-    local actualNPC = findNPC(questData.npcName)
-    if actualNPC then
-        questData.npcPosition = actualNPC.HumanoidRootPart.Position
-        print("✅ Нашли NPC " .. questData.npcName .. " на позиции: " .. tostring(questData.npcPosition))
-    else
-        print("❌ NPC " .. questData.npcName .. " не найден!")
-        return nil
+    print("🎯 Сдаем квест...")
+    
+    -- Летим обратно к NPC
+    local npcTargetPosition = currentQuest.npcPosition + Vector3.new(0, 5, 0)
+    local flySuccess = safeFlyToPosition(npcTargetPosition, 120)
+    
+    if flySuccess then
+        wait(2)
+        
+        -- Ищем NPC
+        local npc = findNPC(currentQuest.npcName)
+        if npc then
+            -- Пытаемся сдать квест через RemoteEvents
+            local remoteNames = {
+                "CompleteQuest",
+                "FinishQuest",
+                "RewardQuest",
+                "EndQuest"
+            }
+            
+            for _, remoteName in pairs(remoteNames) do
+                -- Ищем RemoteEvent в ReplicatedStorage
+                local remote = game:GetService("ReplicatedStorage"):FindFirstChild(remoteName)
+                if remote and remote:IsA("RemoteEvent") then
+                    pcall(function()
+                        remote:FireServer(currentQuest.npcName)
+                        print("✅ Квест сдан через: " .. remoteName)
+                        currentQuest = nil
+                        return true
+                    end)
+                end
+                
+                -- Ищем RemoteEvent в NPC
+                local npcRemote = npc:FindFirstChild(remoteName)
+                if npcRemote and npcRemote:IsA("RemoteEvent") then
+                    pcall(function()
+                        npcRemote:FireServer()
+                        print("✅ Квест сдан через NPC: " .. remoteName)
+                        currentQuest = nil
+                        return true
+                    end)
+                end
+            end
+        end
     end
     
-    return questData
+    print("❌ Не удалось сдать квест")
+    return false
 end
 
--- Основная функция фарма уровней
+-- Обновленная функция фарма мобов
+local function farmMobs(mobName)
+    print("🔫 Ищем мобов: " .. mobName)
+    
+    local mobs = {}
+    local searchFolders = {
+        workspace.Enemies,
+        workspace.Mobs,
+        workspace.Live
+    }
+    
+    -- Ищем мобов в различных папках
+    for _, folder in pairs(searchFolders) do
+        if folder then
+            for _, mob in pairs(folder:GetChildren()) do
+                if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                    local humanoid = mob:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        if string.lower(mob.Name) == string.lower(mobName) or 
+                           string.find(string.lower(mob.Name), string.lower(mobName)) then
+                            table.insert(mobs, mob)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    if #mobs == 0 then
+        print("❌ Мобы " .. mobName .. " не найдены")
+        return false
+    end
+    
+    print("✅ Найдено мобов: " .. #mobs)
+    
+    -- Атакуем каждого моба
+    for _, mob in pairs(mobs) do
+        if not isLevelFarming then break end
+        
+        -- Проверяем прогресс квеста перед каждой атакой
+        if checkQuestProgress() then
+            print("🎯 Квест выполнен, прекращаем фарм мобов")
+            return true
+        end
+        
+        print("🎯 Атакуем моба: " .. mob.Name)
+        
+        -- Атакуем моба
+        local attackSuccess = attackMob(mob)
+        
+        if attackSuccess then
+            print("✅ Моб атакован: " .. mob.Name)
+        else
+            print("❌ Не удалось атаковать моба: " .. mob.Name)
+        end
+        
+        wait(0.5)
+    end
+    
+    return true
+end
+
+-- Обновленная основная функция фарма
 function startLevelFarm()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
     
     isLevelFarming = true
     
+    print("🚀 Запускаем автофарм для " .. currentSea .. " моря")
+    
     spawn(function()
         while isLevelFarming do
-            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("Humanoid") or localPlayer.Character.Humanoid.Health <= 0 then
-                print("❌ Персонаж мертв или не существует")
+            -- Проверяем, что персонаж жив
+            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("Humanoid") or 
+               localPlayer.Character.Humanoid.Health <= 0 then
+                print("💀 Персонаж мертв, ждем респавн...")
                 wait(5)
                 continue
             end
+            
+            -- Обновляем статистику оружия
+            updatePlayerStats()
             
             local currentLevel = getPlayerLevel()
             print("🎯 Текущий уровень: " .. currentLevel)
             
-            -- Получаем информацию о квесте
-            local questInfo = getQuestInfo(currentLevel)
-            if not questInfo then
-                print("❌ Не удалось получить информацию о квесте")
-                wait(5)
-                continue
-            end
-            
-            -- Берем квест
-            print("🛫 Летим к NPC: " .. questInfo.npcName)
-            local flySuccess = safeFlyToPosition(questInfo.npcPosition + Vector3.new(0, 5, 0), 100)
-            
-            if flySuccess then
+            -- Проверяем, не выполнен ли текущий квест
+            if currentQuest and checkQuestProgress() then
+                print("✅ Текущий квест выполнен, сдаем...")
+                completeQuest()
+                currentQuest = nil
                 wait(2)
-                print("✅ Достигли NPC, начинаем фарм мобов...")
-                
-                -- Здесь добавьте логику фарма мобов
-                farmMobs(questInfo.mobName)
-            else
-                print("❌ Не удалось долететь до NPC")
             end
             
-            wait(1)
+            -- Если нет активного квеста, берем новый
+            if not currentQuest then
+                local questInfo = getQuestInfo(currentLevel)
+                if not questInfo then
+                    print("❌ Не удалось получить информацию о квесте")
+                    wait(5)
+                    continue
+                end
+                
+                -- Берем квест
+                local questTaken = takeQuest(questInfo)
+                if not questTaken then
+                    print("❌ Не удалось взять квест")
+                    wait(3)
+                    continue
+                end
+            end
+            
+            print("✅ Квест активен, начинаем фарм мобов...")
+            
+            -- Фармим мобов для квеста
+            local mobsFarmed = false
+            local farmAttempts = 0
+            local maxFarmAttempts = 20
+            
+            while isLevelFarming and not mobsFarmed and farmAttempts < maxFarmAttempts do
+                mobsFarmed = farmMobs(currentQuest.mobName)
+                farmAttempts = farmAttempts + 1
+                
+                -- Проверяем выполнение квеста после фарма
+                if checkQuestProgress() then
+                    print("🎯 Квест выполнен в процессе фарма!")
+                    mobsFarmed = true
+                    break
+                end
+                
+                wait(2)
+            end
+            
+            if checkQuestProgress() then
+                print("✅ Квест выполнен, сдаем...")
+                completeQuest()
+                currentQuest = nil
+            elseif mobsFarmed then
+                print("✅ Успешно профармили мобов")
+            else
+                print("❌ Не удалось профармить мобов после " .. maxFarmAttempts .. " попыток")
+            end
+            
+            wait(2)
         end
     end)
 end
 
--- Функция для получения уровня игрока
-local function getPlayerLevel()
-    local localPlayer = game:GetService("Players").LocalPlayer
-    if localPlayer and localPlayer:FindFirstChild("Data") and localPlayer.Data:FindFirstChild("Level") then
-        return localPlayer.Data.Level.Value
-    end
-    return 1
-end
-
--- Функция для фарма мобов (добавьте свою реализацию)
-local function farmMobs(mobName)
-    -- Ваша логика фарма мобов здесь
-    print("🔫 Начинаем фарм мобов: " .. mobName)
-end
+-- Добавьте остальные функции (findNPC, safeFlyToPosition, getPlayerLevel, getQuestInfo) из предыдущего кода
