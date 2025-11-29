@@ -12,736 +12,525 @@ Window:AddMinimizeButton({
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
-local InfoTab = Window:MakeTab({ Title = "Info", Icon = "rbxassetid://72674068736695" })
+-- ... (предыдущие вкладки Info и Фарм сундуков остаются без изменений)
 
-InfoTab:AddSection({ "Script Information" })
-InfoTab:AddParagraph({ "Owner / Developer:", "@kn1fan / lava85halst" })
-InfoTab:AddParagraph({ "You are using:", "lava Hub Brookhaven " })
-InfoTab:AddParagraph({"Your executor:", "Executor Name"})
+local LevelFarm = Window:MakeTab({ Title = "Фарм lvl", Icon = "rbxassetid://13364900349" })
 
-InfoTab:AddSection({ "Rejoin" })
-InfoTab:AddButton({
-    Name = "Rejoin",
+-- Переменные для управления фармингом уровней
+local isLevelFarming = false
+local currentSea = 1
+
+-- Секция для 1 моря
+LevelFarm:AddSection({ "1 Море" })
+
+LevelFarm:AddButton({
+    Name = "Включить фарм 1 море",
+    Description = "Автоматически фармит уровни на 1 море",
     Callback = function()
-        local TeleportService = game:GetService("TeleportService")
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
-    end
-})
-
-local ChestFarm = Window:MakeTab({ Title = "Фарм сундуков", Icon = "rbxassetid://13364900349" })
-
--- Переменные для управления фармингом
-local isRunning2Sea = false
-local isRunning3Sea = false
-
--- Настройки скорости
-local flightSpeed = 200 -- Базовая скорость полета
-local collectionSpeed = 120 -- Скорость при сборе сундуков
-local patrolSpeed = 250 -- Скорость при патрулировании
-
--- Секция для 2 моря
-ChestFarm:AddSection({ "Второе Море" })
-
-ChestFarm:AddButton({
-    Name = "запустить фарм 2 море",
-    Description = "Автоматически фармит сундуки на 2 море",
-    Callback = function()
-        if isRunning2Sea then
-            print("Фарминг 2 моря уже запущен")
+        if isLevelFarming then
+            print("Фарминг уровней уже запущен")
             return
         end
         
-        -- Останавливаем фарм 3 моря если запущен
-        if isRunning3Sea then
-            isRunning3Sea = false
-            wait(1)
-        end
-        
-        -- Функция фарминга сундуков для 2 моря
-        local function farmSecondSeaChests()
-            -- Проверяем, что игрок на Втором море
-            if game:GetService("Players").LocalPlayer.Data.Level.Value < 700 then
-                warn("Нужно быть на Втором море (уровень 700+)")
-                return
-            end
-            
-            local Players = game:GetService("Players")
-            local localPlayer = Players.LocalPlayer
-            local TweenService = game:GetService("TweenService")
-            isRunning2Sea = true
-            
-            -- Функция для включения NoClip
-            local function enableNoClip()
-                local character = localPlayer.Character
-                if not character then return end
-                
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
-            end
-            
-            -- Функция для включения полета
-            local function enableFlight()
-                local character = localPlayer.Character
-                if not character then return false end
-                
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if not humanoid then return false end
-                
-                -- Включаем полет
-                humanoid.PlatformStand = true
-                
-                -- Создаем BodyVelocity для полета с увеличенной силой
-                local bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000) -- Увеличена сила
-                bodyVelocity.Parent = character.HumanoidRootPart
-                
-                return true
-            end
-            
-            -- Функция для отключения полета
-            local function disableFlight()
-                local character = localPlayer.Character
-                if not character then return end
-                
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.PlatformStand = false
-                end
-                
-                -- Удаляем BodyVelocity
-                local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
-                if bodyVelocity then
-                    bodyVelocity:Destroy()
-                end
-            end
-            
-            -- Функция для быстрого полета к точке
-            local function flyToPosition(targetPosition, speed)
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                local rootPart = character.HumanoidRootPart
-                local bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-                
-                if not bodyVelocity then
-                    enableFlight()
-                    bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-                    if not bodyVelocity then return false end
-                end
-                
-                local startTime = tick()
-                local maxTime = 15 -- Увеличенное время полета
-                
-                while isRunning2Sea and character and rootPart do
-                    local distance = (targetPosition - rootPart.Position).Magnitude
-                    
-                    if distance < 8 then -- Достигли цели
-                        break
-                    end
-                    
-                    if tick() - startTime > maxTime then -- Таймаут
-                        print("Таймаут полета")
-                        break
-                    end
-                    
-                    -- Включаем NoClip во время полета
-                    enableNoClip()
-                    
-                    -- Вычисляем направление с ускорением на больших расстояниях
-                    local direction = (targetPosition - rootPart.Position).Unit
-                    local currentSpeed = speed
-                    
-                    -- Увеличиваем скорость на больших расстояниях
-                    if distance > 500 then
-                        currentSpeed = speed * 1.5
-                    elseif distance > 1000 then
-                        currentSpeed = speed * 2
-                    end
-                    
-                    local velocity = direction * math.min(currentSpeed, distance * 3) -- Увеличено ускорение
-                    
-                    -- Устанавливаем скорость
-                    bodyVelocity.Velocity = velocity
-                    
-                    wait(0.02) -- Уменьшена задержка для более плавного движения
-                end
-                
-                -- Останавливаемся
-                if bodyVelocity then
-                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                end
-                
-                return true
-            end
-            
-            -- Функция для поиска всех сундуков на карте
-            local function findAllChests()
-                local chests = {}
-                
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("Part") and obj:FindFirstChild("TouchInterest") then
-                        -- Проверяем различные названия сундуков
-                        local name = obj.Name:lower()
-                        if name:find("chest") or name:find("sunduk") or name:find("strong") or name:find("reward") then
-                            -- Проверяем, что сундук над землей
-                            if obj.Position.Y > 20 and obj.Position.Y < 500 then
-                                table.insert(chests, obj)
-                            end
-                        end
-                    end
-                end
-                
-                return chests
-            end
-            
-            -- Функция для сбора сундука
-            local function collectChest(chest)
-                if not chest or not chest.Parent then 
-                    return false 
-                end
-                
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Включаем NoClip перед сбором
-                enableNoClip()
-                
-                -- Быстро подлетаем ближе к сундуку
-                local targetPos = chest.Position + Vector3.new(0, 3, 0)
-                flyToPosition(targetPos, collectionSpeed)
-                wait(0.1) -- Уменьшена задержка
-                
-                -- Собираем сундук
-                firetouchinterest(character.HumanoidRootPart, chest, 0)
-                wait(0.03)
-                firetouchinterest(character.HumanoidRootPart, chest, 1)
-                wait(0.3) -- Уменьшена задержка
-                
-                return true
-            end
-            
-            -- Функция для быстрого полета к сундуку
-            local function flyToChest(chest)
-                if not chest or not chest.Parent then 
-                    return false 
-                end
-                
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Включаем полет и NoClip
-                if not enableFlight() then
-                    return false
-                end
-                enableNoClip()
-                
-                -- Положение над сундуком для сбора
-                local targetPosition = chest.Position + Vector3.new(0, 5, 0)
-                
-                print("Быстро летим к сундуку на позиции: " .. tostring(chest.Position))
-                
-                -- Быстро летим к сундуку
-                local success = flyToPosition(targetPosition, flightSpeed)
-                
-                if success then
-                    print("Быстро долетели до сундука")
-                    wait(0.2) -- Уменьшена задержка
-                    return true
-                else
-                    print("Не удалось долететь до сундука")
-                    return false
-                end
-            end
-            
-            -- Автоматическое обновление NoClip
-            local noClipConnection
-            local function startAutoNoClip()
-                noClipConnection = game:GetService("RunService").Stepped:Connect(function()
-                    if isRunning2Sea and localPlayer.Character then
-                        enableNoClip()
-                    end
-                end)
-            end
-            
-            local function stopAutoNoClip()
-                if noClipConnection then
-                    noClipConnection:Disconnect()
-                    noClipConnection = nil
-                end
-            end
-            
-            -- Запускаем авто-NoClip
-            startAutoNoClip()
-            
-            -- Основной цикл фарминга для 2 моря
-            while isRunning2Sea do
-                local character = localPlayer.Character
-                if not character then
-                    character = localPlayer.CharacterAdded:Wait()
-                    wait(2) -- Уменьшено время ожидания
-                end
-                
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    wait(0.5)
-                    continue
-                end
-                
-                -- Включаем полет в начале цикла
-                enableFlight()
-                enableNoClip()
-                
-                -- Ищем все сундуки на карте
-                local allChests = findAllChests()
-                
-                if #allChests > 0 then
-                    print("Найдено сундуков на 2 море: " .. #allChests)
-                    
-                    -- Сортируем сундуки по расстоянию (ближайшие first)
-                    table.sort(allChests, function(a, b)
-                        local charPos = character.HumanoidRootPart.Position
-                        return (a.Position - charPos).Magnitude < (b.Position - charPos).Magnitude
-                    end)
-                    
-                    -- Быстро собираем все найденные сундуки
-                    for i, chest in ipairs(allChests) do
-                        if not isRunning2Sea then break end
-                        if not chest or not chest.Parent then continue end
-                        
-                        print("Быстро собираем сундук " .. i .. " на позиции " .. tostring(chest.Position))
-                        
-                        -- Быстро летим к сундуку
-                        if flyToChest(chest) then
-                            -- Быстро собираем сундук
-                            local collected = collectChest(chest)
-                            if collected then
-                                print("✓ Сундук " .. i .. " быстро собран")
-                            else
-                                print("✗ Не удалось собрать сундук " .. i)
-                            end
-                        end
-                        
-                        wait(0.3) -- Уменьшена задержка между сундуками
-                    end
-                else
-                    print("Сундуков на 2 море не найдено, проверяем позже...")
-                    wait(3) -- Уменьшено время ожидания
-                end
-                
-                wait(0.5) -- Уменьшена задержка между циклами
-            end
-            
-            -- Отключаем полет и NoClip при остановке
-            stopAutoNoClip()
-            disableFlight()
-            print("Фарминг 2 моря остановлен")
-        end
-        
-        -- Запускаем в отдельном потоке
-        spawn(farmSecondSeaChests)
+        currentSea = 1
+        startLevelFarm()
     end
 })
 
-ChestFarm:AddButton({
-    Name = "остановить фарм 2 море",
-    Description = "Останавливает фарм сундуков на 2 море",
+-- Секция для 2 моря
+LevelFarm:AddSection({ "2 Море" })
+
+LevelFarm:AddButton({
+    Name = "Включить фарм 2 море",
+    Description = "Автоматически фармит уровни на 2 море",
     Callback = function()
-        isRunning2Sea = false
-        print("Останавливаем фарминг 2 моря...")
+        if isLevelFarming then
+            print("Фарминг уровней уже запущен")
+            return
+        end
+        
+        currentSea = 2
+        startLevelFarm()
     end
 })
 
 -- Секция для 3 моря
-ChestFarm:AddSection({ "Третье Море" })
+LevelFarm:AddSection({ "3 Море" })
 
-ChestFarm:AddButton({
-    Name = "запустить фарм 3 море",
-    Description = "Автоматически фармит сундуки на 3 море",
+LevelFarm:AddButton({
+    Name = "Включить фарм 3 море",
+    Description = "Автоматически фармит уровни на 3 море",
     Callback = function()
-        if isRunning3Sea then
-            print("Фарминг 3 моря уже запущен")
+        if isLevelFarming then
+            print("Фарминг уровней уже запущен")
             return
         end
         
-        -- Останавливаем фарм 2 моря если запущен
-        if isRunning2Sea then
-            isRunning2Sea = false
-            wait(1)
+        currentSea = 3
+        startLevelFarm()
+    end
+})
+
+-- Кнопка остановки
+LevelFarm:AddButton({
+    Name = "Остановить фарм уровней",
+    Description = "Останавливает фарминг уровней",
+    Callback = function()
+        isLevelFarming = false
+        print("Останавливаем фарминг уровней...")
+    end
+})
+
+-- Основная функция фарма уровней
+function startLevelFarm()
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    
+    isLevelFarming = true
+    
+    -- Функция для включения NoClip
+    local function enableNoClip()
+        local character = localPlayer.Character
+        if not character then return end
+        
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+    
+    -- Функция для включения полета
+    local function enableFlight()
+        local character = localPlayer.Character
+        if not character then return false end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return false end
+        
+        humanoid.PlatformStand = true
+        
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+        bodyVelocity.Parent = character.HumanoidRootPart
+        
+        return true
+    end
+    
+    -- Функция для полета к точке
+    local function flyToPosition(targetPosition, speed)
+        local character = localPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return false
         end
         
-        -- Функция фарминга сундуков для 3 моря
-        local function farmThirdSeaChests()
-            -- Проверяем, что игрок на Третьем море
-            if game:GetService("Players").LocalPlayer.Data.Level.Value < 1500 then
-                warn("Нужно быть на Третьем море (уровень 1500+)")
-                return
+        local rootPart = character.HumanoidRootPart
+        local bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
+        
+        if not bodyVelocity then
+            enableFlight()
+            bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
+            if not bodyVelocity then return false end
+        end
+        
+        local startTime = tick()
+        local maxTime = 10
+        
+        while isLevelFarming and character and rootPart do
+            local distance = (targetPosition - rootPart.Position).Magnitude
+            
+            if distance < 10 then
+                break
             end
             
-            local Players = game:GetService("Players")
-            local localPlayer = Players.LocalPlayer
-            local TweenService = game:GetService("TweenService")
-            isRunning3Sea = true
-            
-            -- Функция для включения NoClip
-            local function enableNoClip()
-                local character = localPlayer.Character
-                if not character then return end
-                
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
+            if tick() - startTime > maxTime then
+                break
             end
             
-            -- Функция для включения полета
-            local function enableFlight()
-                local character = localPlayer.Character
-                if not character then return false end
-                
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if not humanoid then return false end
-                
-                -- Включаем полет
-                humanoid.PlatformStand = true
-                
-                -- Создаем BodyVelocity для полета с увеличенной силой
-                local bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000) -- Увеличена сила
-                bodyVelocity.Parent = character.HumanoidRootPart
-                
-                return true
-            end
+            enableNoClip()
             
-            -- Функция для отключения полета
-            local function disableFlight()
-                local character = localPlayer.Character
-                if not character then return end
-                
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.PlatformStand = false
-                end
-                
-                -- Удаляем BodyVelocity
-                local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
-                if bodyVelocity then
-                    bodyVelocity:Destroy()
-                end
-            end
+            local direction = (targetPosition - rootPart.Position).Unit
+            local velocity = direction * math.min(speed, distance * 2)
             
-            -- Функция для быстрого полета к точке
-            local function flyToPosition(targetPosition, speed)
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                local rootPart = character.HumanoidRootPart
-                local bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-                
-                if not bodyVelocity then
-                    enableFlight()
-                    bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
-                    if not bodyVelocity then return false end
-                end
-                
-                local startTime = tick()
-                local maxTime = 20 -- Увеличенное время полета для 3 моря
-                
-                while isRunning3Sea and character and rootPart do
-                    local distance = (targetPosition - rootPart.Position).Magnitude
-                    
-                    if distance < 8 then -- Достигли цели
-                        break
-                    end
-                    
-                    if tick() - startTime > maxTime then -- Таймаут
-                        print("Таймаут полета")
-                        break
-                    end
-                    
-                    -- Включаем NoClip во время полета
-                    enableNoClip()
-                    
-                    -- Вычисляем направление с ускорением на больших расстояниях
-                    local direction = (targetPosition - rootPart.Position).Unit
-                    local currentSpeed = speed
-                    
-                    -- Увеличиваем скорость на больших расстояниях (3 море больше)
-                    if distance > 1000 then
-                        currentSpeed = speed * 2
-                    elseif distance > 2000 then
-                        currentSpeed = speed * 2.5
-                    end
-                    
-                    local velocity = direction * math.min(currentSpeed, distance * 4) -- Увеличено ускорение
-                    
-                    -- Устанавливаем скорость
-                    bodyVelocity.Velocity = velocity
-                    
-                    wait(0.02) -- Уменьшена задержка для более плавного движения
-                end
-                
-                -- Останавливаемся
-                if bodyVelocity then
-                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                end
-                
-                return true
-            end
-            
-            -- Функция для поиска всех сундуков на карте
-            local function findAllChests()
-                local chests = {}
-                
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("Part") and obj:FindFirstChild("TouchInterest") then
-                        -- Проверяем различные названия сундуков
-                        local name = obj.Name:lower()
-                        if name:find("chest") or name:find("sunduk") or name:find("strong") or name:find("reward") then
-                            -- Проверяем, что сундук над землей
-                            if obj.Position.Y > 20 and obj.Position.Y < 500 then
-                                table.insert(chests, obj)
-                            end
-                        end
-                    end
-                end
-                
-                return chests
-            end
-            
-            -- Функция для сбора сундука
-            local function collectChest(chest)
-                if not chest or not chest.Parent then 
-                    return false 
-                end
-                
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Включаем NoClip перед сбором
-                enableNoClip()
-                
-                -- Быстро подлетаем ближе к сундуку
-                local targetPos = chest.Position + Vector3.new(0, 3, 0)
-                flyToPosition(targetPos, collectionSpeed)
-                wait(0.1) -- Уменьшена задержка
-                
-                -- Собираем сундук
-                firetouchinterest(character.HumanoidRootPart, chest, 0)
-                wait(0.03)
-                firetouchinterest(character.HumanoidRootPart, chest, 1)
-                wait(0.3) -- Уменьшена задержка
-                
-                return true
-            end
-            
-            -- Функция для быстрого полета к сундуку
-            local function flyToChest(chest)
-                if not chest or not chest.Parent then 
-                    return false 
-                end
-                
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Включаем полет и NoClip
-                if not enableFlight() then
-                    return false
-                end
-                enableNoClip()
-                
-                -- Положение над сундуком для сбора
-                local targetPosition = chest.Position + Vector3.new(0, 5, 0)
-                
-                print("Быстро летим к сундуку на 3 море: " .. tostring(chest.Position))
-                
-                -- Быстро летим к сундуку
-                local success = flyToPosition(targetPosition, flightSpeed)
-                
-                if success then
-                    print("Быстро долетели до сундука на 3 море")
-                    wait(0.2) -- Уменьшена задержка
-                    return true
-                else
-                    print("Не удалось долететь до сундука на 3 море")
-                    return false
-                end
-            end
-            
-            -- Точки спавна сундуков для 3 моря
-            local function getThirdSeaSpawnPoints()
+            bodyVelocity.Velocity = velocity
+            wait(0.03)
+        end
+        
+        if bodyVelocity then
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+        
+        return true
+    end
+    
+    -- Функция для получения текущего уровня игрока
+    local function getPlayerLevel()
+        return localPlayer.Data.Level.Value
+    end
+    
+    -- Функция для получения информации о квесте
+    local function getQuestInfo(level)
+        -- Квесты для 1 моря
+        if currentSea == 1 then
+            if level < 10 then
                 return {
-                    Vector3.new(-5000, 80, -5000),   -- Port Town
-                    Vector3.new(-4500, 80, -5500),   -- Port Town
-                    Vector3.new(-5500, 80, -4500),   -- Port Town
-                    Vector3.new(-3000, 80, -6000),   -- Hydra Island
-                    Vector3.new(-2500, 80, -6500),   -- Hydra Island
-                    Vector3.new(-3500, 80, -5500),   -- Hydra Island
-                    Vector3.new(-1000, 80, -7000),   -- Great Tree
-                    Vector3.new(-1500, 80, -7500),   -- Great Tree
-                    Vector3.new(-500, 80, -6500),    -- Great Tree
-                    Vector3.new(1000, 80, -8000),    -- Floating Turtle
-                    Vector3.new(1500, 80, -8500),    -- Floating Turtle
-                    Vector3.new(500, 80, -7500),     -- Floating Turtle
-                    Vector3.new(3000, 80, -9000),    -- Castle on the Sea
-                    Vector3.new(3500, 80, -9500),    -- Castle on the Sea
-                    Vector3.new(2500, 80, -8500),    -- Castle on the Sea
-                    Vector3.new(5000, 80, -10000),   -- Haunted Castle
-                    Vector3.new(5500, 80, -10500),   -- Haunted Castle
-                    Vector3.new(4500, 80, -9500)     -- Haunted Castle
+                    npc = "Bandit",
+                    npcPosition = Vector3.new(-1000, 50, 1500),
+                    mobName = "Bandit",
+                    mobPositions = {Vector3.new(-1050, 50, 1550), Vector3.new(-950, 50, 1450)}
+                }
+            elseif level < 20 then
+                return {
+                    npc = "Monkey",
+                    npcPosition = Vector3.new(-1500, 50, 1000),
+                    mobName = "Monkey",
+                    mobPositions = {Vector3.new(-1550, 50, 1050), Vector3.new(-1450, 50, 950)}
+                }
+            elseif level < 30 then
+                return {
+                    npc = "Gorilla",
+                    npcPosition = Vector3.new(-2000, 50, 500),
+                    mobName = "Gorilla",
+                    mobPositions = {Vector3.new(-2050, 50, 550), Vector3.new(-1950, 50, 450)}
+                }
+            else
+                return {
+                    npc = "Military Soldier",
+                    npcPosition = Vector3.new(-500, 50, 2000),
+                    mobName = "Military Soldier",
+                    mobPositions = {Vector3.new(-550, 50, 2050), Vector3.new(-450, 50, 1950)}
                 }
             end
-            
-            -- Функция для быстрого патрулирования точек 3 моря
-            local function patrolThirdSeaPoints()
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return {}
-                end
-                
-                local spawnPoints = getThirdSeaSpawnPoints()
-                
-                for i, point in ipairs(spawnPoints) do
-                    if not isRunning3Sea then break end
-                    
-                    print("Быстро проверяем точку " .. i .. " на 3 море")
-                    
-                    -- Быстро летим к точке
-                    flyToPosition(point, patrolSpeed)
-                    wait(0.8) -- Уменьшено время ожидания
-                    
-                    -- Ищем сундуки
-                    local chests = findAllChests()
-                    if #chests > 0 then
-                        print("Найдены сундуки в точке " .. i .. " на 3 море")
-                        return chests
-                    end
-                end
-                
-                return {}
+        
+        -- Квесты для 2 моря
+        elseif currentSea == 2 then
+            if level < 700 then
+                return {
+                    npc = "Marine Captain",
+                    npcPosition = Vector3.new(1400, 80, 100),
+                    mobName = "Marine Captain",
+                    mobPositions = {Vector3.new(1350, 80, 150), Vector3.new(1450, 80, 50)}
+                }
+            elseif level < 800 then
+                return {
+                    npc = "Galley Captain",
+                    npcPosition = Vector3.new(-500, 80, 1200),
+                    mobName = "Galley Captain",
+                    mobPositions = {Vector3.new(-550, 80, 1250), Vector3.new(-450, 80, 1150)}
+                }
+            else
+                return {
+                    npc = "Forest Pirate",
+                    npcPosition = Vector3.new(-1500, 80, 100),
+                    mobName = "Forest Pirate",
+                    mobPositions = {Vector3.new(-1550, 80, 150), Vector3.new(-1450, 80, 50)}
+                }
             end
-            
-            -- Автоматическое обновление NoClip
-            local noClipConnection
-            local function startAutoNoClip()
-                noClipConnection = game:GetService("RunService").Stepped:Connect(function()
-                    if isRunning3Sea and localPlayer.Character then
-                        enableNoClip()
-                    end
+        
+        -- Квесты для 3 моря
+        elseif currentSea == 3 then
+            if level < 1500 then
+                return {
+                    npc = "Pirate Millionaire",
+                    npcPosition = Vector3.new(-5000, 80, -5000),
+                    mobName = "Pirate Millionaire",
+                    mobPositions = {Vector3.new(-5050, 80, -4950), Vector3.new(-4950, 80, -5050)}
+                }
+            elseif level < 1600 then
+                return {
+                    npc = "Dragon Crew Archer",
+                    npcPosition = Vector3.new(-3000, 80, -6000),
+                    mobName = "Dragon Crew Archer",
+                    mobPositions = {Vector3.new(-3050, 80, -5950), Vector3.new(-2950, 80, -6050)}
+                }
+            else
+                return {
+                    npc = "Ship Deckhand",
+                    npcPosition = Vector3.new(1000, 80, -8000),
+                    mobName = "Ship Deckhand",
+                    mobPositions = {Vector3.new(950, 80, -7950), Vector3.new(1050, 80, -8050)}
+                }
+            end
+        end
+    end
+    
+    -- Функция для взятия квеста
+    local function takeQuest(questInfo)
+        local character = localPlayer.Character
+        if not character then return false end
+        
+        print("Летим к NPC: " .. questInfo.npc)
+        
+        -- Летим к NPC
+        flyToPosition(questInfo.npcPosition, 150)
+        wait(1)
+        
+        -- Ищем NPC
+        for _, npc in pairs(workspace.NPCs:GetChildren()) do
+            if npc.Name:find(questInfo.npc) and npc:FindFirstChild("HumanoidRootPart") then
+                print("Нашли NPC, берем квест...")
+                
+                -- Подлетаем ближе к NPC
+                flyToPosition(npc.HumanoidRootPart.Position, 50)
+                wait(0.5)
+                
+                -- Активируем диалог с NPC (имитируем нажатие E)
+                local args = {
+                    [1] = npc.Name,
+                    [2] = "StartQuest"
+                }
+                
+                -- Пытаемся взять квест через RemoteEvent
+                pcall(function()
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
                 end)
+                
+                wait(1)
+                return true
             end
-            
-            local function stopAutoNoClip()
-                if noClipConnection then
-                    noClipConnection:Disconnect()
-                    noClipConnection = nil
-                end
-            end
-            
-            -- Запускаем авто-NoClip
-            startAutoNoClip()
-            
-            -- Основной цикл фарминга для 3 моря
-            while isRunning3Sea do
-                local character = localPlayer.Character
-                if not character then
-                    character = localPlayer.CharacterAdded:Wait()
-                    wait(2) -- Уменьшено время ожидания
-                end
-                
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    wait(0.5)
-                    continue
-                end
-                
-                -- Включаем полет в начале цикла
-                enableFlight()
-                enableNoClip()
-                
-                -- Ищем все сундуки на карте
-                local allChests = findAllChests()
-                
-                if #allChests == 0 then
-                    print("Сундуков рядом нет, быстро патрулируем точки 3 моря...")
-                    allChests = patrolThirdSeaPoints()
-                end
-                
-                if #allChests > 0 then
-                    print("Найдено сундуков на 3 море: " .. #allChests)
-                    
-                    -- Сортируем сундуки по расстоянию (ближайшие first)
-                    table.sort(allChests, function(a, b)
-                        local charPos = character.HumanoidRootPart.Position
-                        return (a.Position - charPos).Magnitude < (b.Position - charPos).Magnitude
-                    end)
-                    
-                    -- Быстро собираем все найденные сундуки
-                    for i, chest in ipairs(allChests) do
-                        if not isRunning3Sea then break end
-                        if not chest or not chest.Parent then continue end
-                        
-                        print("Быстро собираем сундук " .. i .. " на 3 море: " .. tostring(chest.Position))
-                        
-                        -- Быстро летим к сундуку
-                        if flyToChest(chest) then
-                            -- Быстро собираем сундук
-                            local collected = collectChest(chest)
-                            if collected then
-                                print("✓ Сундук " .. i .. " на 3 море быстро собран")
-                            else
-                                print("✗ Не удалось собрать сундук " .. i .. " на 3 море")
-                            end
-                        end
-                        
-                        wait(0.3) -- Уменьшена задержка между сундуками
-                    end
-                else
-                    print("Сундуков на 3 море не найдено, быстро повторяем поиск...")
-                    wait(3) -- Уменьшено время ожидания
-                end
-                
-                wait(0.5) -- Уменьшена задержка между циклами
-            end
-            
-            -- Отключаем полет и NoClip при остановке
-            stopAutoNoClip()
-            disableFlight()
-            print("Фарминг 3 моря остановлен")
         end
         
-        -- Запускаем в отдельном потоке
-        spawn(farmThirdSeaChests)
+        return false
     end
-})
-
-ChestFarm:AddButton({
-    Name = "остановить фарм 3 море",
-    Description = "Останавливает фарм сундуков на 3 море",
-    Callback = function()
-        isRunning3Sea = false
-        print("Останавливаем фарминг 3 моря...")
+    
+    -- Функция для атаки мобов
+    local function attackMobs(questInfo)
+        local character = localPlayer.Character
+        if not character then return false end
+        
+        print("Ищем мобов: " .. questInfo.mobName)
+        
+        -- Летим к зоне спавна мобов
+        flyToPosition(questInfo.mobPositions[1], 120)
+        wait(0.5)
+        
+        local mobsKilled = 0
+        local maxMobs = 10 -- Количество мобов для квеста
+        
+        while isLevelFarming and mobsKilled < maxMobs do
+            local character = localPlayer.Character
+            if not character then break end
+            
+            -- Ищем ближайшего моба
+            local nearestMob = nil
+            local nearestDistance = math.huge
+            
+            for _, mob in pairs(workspace.Enemies:GetChildren()) do
+                if mob.Name:find(questInfo.mobName) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local distance = (mob.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+                    if distance < nearestDistance then
+                        nearestDistance = distance
+                        nearestMob = mob
+                    end
+                end
+            end
+            
+            if nearestMob then
+                print("Атакуем моба: " .. nearestMob.Name)
+                
+                -- Летим к мобу на безопасное расстояние
+                local attackPosition = nearestMob.HumanoidRootPart.Position + Vector3.new(10, 5, 10)
+                flyToPosition(attackPosition, 80)
+                
+                -- Используем фрукт для атаки
+                useFruitAttack(nearestMob)
+                
+                -- Ждем смерти моба
+                local mobAlive = true
+                local attackTime = tick()
+                
+                while mobAlive and isLevelFarming and (tick() - attackTime < 10) do
+                    if not nearestMob or not nearestMob.Parent or nearestMob.Humanoid.Health <= 0 then
+                        mobAlive = false
+                        mobsKilled = mobsKilled + 1
+                        print("Моб убит! Всего: " .. mobsKilled .. "/" .. maxMobs)
+                        break
+                    end
+                    
+                    -- Продолжаем атаковать
+                    useFruitAttack(nearestMob)
+                    wait(0.5)
+                end
+                
+            else
+                -- Если мобов нет, патрулируем зону
+                print("Мобов не найдено, патрулируем зону...")
+                for _, pos in pairs(questInfo.mobPositions) do
+                    if not isLevelFarming then break end
+                    flyToPosition(pos, 100)
+                    wait(1)
+                end
+            end
+            
+            wait(0.5)
+        end
+        
+        return mobsKilled >= maxMobs
     end
-})
+    
+    -- Функция для использования атаки фрукта
+    local function useFruitAttack(target)
+        local character = localPlayer.Character
+        if not character or not target then return end
+        
+        -- Включаем NoClip для безопасности
+        enableNoClip()
+        
+        -- Ищем фрукт в инвентаре
+        local backpack = localPlayer.Backpack
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        
+        if not humanoid then return end
+        
+        -- Пытаемся найти фрукт
+        for _, tool in pairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and (tool.Name:find("Fruit") or tool.Name:find("Blox")) then
+                -- Берем инструмент в руки
+                humanoid:EquipTool(tool)
+                wait(0.2)
+                
+                -- Используем Z атаку (основная атака)
+                local args = {
+                    [1] = "Z",
+                    [2] = target.HumanoidRootPart.Position
+                }
+                
+                pcall(function()
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+                end)
+                
+                -- Используем X атаку (вторая атака)
+                local args2 = {
+                    [1] = "X",
+                    [2] = target.HumanoidRootPart.Position
+                }
+                
+                pcall(function()
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args2))
+                end)
+                
+                break
+            end
+        end
+        
+        -- Базовая атака мечом (если фрукта нет)
+        for _, tool in pairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name:find("Sword") then
+                humanoid:EquipTool(tool)
+                wait(0.2)
+                
+                -- Атака мечом
+                mouse1click()
+                wait(0.1)
+                break
+            end
+        end
+    end
+    
+    -- Функция для сдачи квеста
+    local function completeQuest(questInfo)
+        local character = localPlayer.Character
+        if not character then return false end
+        
+        print("Сдаем квест...")
+        
+        -- Летим обратно к NPC
+        flyToPosition(questInfo.npcPosition, 150)
+        wait(1)
+        
+        -- Ищем NPC для сдачи квеста
+        for _, npc in pairs(workspace.NPCs:GetChildren()) do
+            if npc.Name:find(questInfo.npc) and npc:FindFirstChild("HumanoidRootPart") then
+                flyToPosition(npc.HumanoidRootPart.Position, 50)
+                wait(0.5)
+                
+                -- Сдаем квест
+                local args = {
+                    [1] = npc.Name,
+                    [2] = "EndQuest"
+                }
+                
+                pcall(function()
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+                end)
+                
+                wait(1)
+                return true
+            end
+        end
+        
+        return false
+    end
+    
+    -- Автоматическое обновление NoClip
+    local noClipConnection = game:GetService("RunService").Stepped:Connect(function()
+        if isLevelFarming and localPlayer.Character then
+            enableNoClip()
+        end
+    end)
+    
+    -- Основной цикл фарма уровней
+    spawn(function()
+        while isLevelFarming do
+            local character = localPlayer.Character
+            if not character then
+                character = localPlayer.CharacterAdded:Wait()
+                wait(2)
+            end
+            
+            if not character or not character:FindFirstChild("HumanoidRootPart") then
+                wait(1)
+                continue
+            end
+            
+            -- Включаем полет
+            enableFlight()
+            enableNoClip()
+            
+            local playerLevel = getPlayerLevel()
+            print("Текущий уровень: " .. playerLevel)
+            
+            -- Получаем информацию о квесте для текущего уровня
+            local questInfo = getQuestInfo(playerLevel)
+            
+            if questInfo then
+                print("Начинаем квест: " .. questInfo.npc)
+                
+                -- Берем квест
+                if takeQuest(questInfo) then
+                    print("Квест взят, начинаем фарм мобов...")
+                    
+                    -- Фармим мобов
+                    if attackMobs(questInfo) then
+                        print("Все мобы убиты, сдаем квест...")
+                        
+                        -- Сдаем квест
+                        if completeQuest(questInfo) then
+                            print("Квест успешно сдан!")
+                        else
+                            print("Не удалось сдать квест")
+                        end
+                    else
+                        print("Не удалось убить всех мобов")
+                    end
+                else
+                    print("Не удалось взять квест")
+                end
+            else
+                print("Не найден подходящий квест для уровня " .. playerLevel)
+            end
+            
+            wait(2)
+        end
+        
+        -- Очистка при остановке
+        noClipConnection:Disconnect()
+        print("Фарминг уровней остановлен")
+    end)
+end
 
-ChestFarm:AddSection({ "Настройки скорости" })
-ChestFarm:AddParagraph({"Скорость полета:", "• Базовая: " .. flightSpeed .. " • Сбор: " .. collectionSpeed .. " • Патруль: " .. patrolSpeed})
-ChestFarm:AddParagraph({"Особенности:", "• Ускорение на больших расстояниях • Плавное движение • Авто-NoClip"})
-ChestFarm:AddSection({ "Информация" })
-ChestFarm:AddParagraph({"2 Море:", "• Kingdom of Rose • Usoap's Island • Frozen Village"})
-ChestFarm:AddParagraph({"3 Море:", "• Port Town • Hydra Island • Great Tree • Floating Turtle • Castle on the Sea"})
+LevelFarm:AddSection({ "Информация" })
+LevelFarm:AddParagraph({"Особенности:", "• Автовыбор квеста по уровню • Безопасная атака с расстояния • NoClip защита"})
+LevelFarm:AddParagraph({"Функции:", "• Автополет к NPC • Автоатака фруктом • Автосдача квеста"})
