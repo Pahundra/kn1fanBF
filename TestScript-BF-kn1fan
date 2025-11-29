@@ -19,6 +19,7 @@ local LevelFarm = Window:MakeTab({ Title = "Фарм lvl", Icon = "rbxassetid://
 -- Переменные для управления фармингом уровней
 local isLevelFarming = false
 local currentSea = 1
+local noClipConnection
 
 -- Секция для 1 моря
 LevelFarm:AddSection({ "1 Море" })
@@ -76,10 +77,43 @@ LevelFarm:AddButton({
     Name = "Остановить фарм уровней",
     Description = "Останавливает фарминг уровней",
     Callback = function()
-        isLevelFarming = false
-        print("Останавливаем фарминг уровней...")
+        stopLevelFarm()
     end
 })
+
+-- Функция остановки фарма уровней
+function stopLevelFarm()
+    if isLevelFarming then
+        isLevelFarming = false
+        
+        -- Отключаем NoClip
+        if noClipConnection then
+            noClipConnection:Disconnect()
+            noClipConnection = nil
+        end
+        
+        -- Отключаем полет
+        local Players = game:GetService("Players")
+        local localPlayer = Players.LocalPlayer
+        local character = localPlayer.Character
+        
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.PlatformStand = false
+            end
+            
+            local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
+            if bodyVelocity then
+                bodyVelocity:Destroy()
+            end
+        end
+        
+        print("✅ Фарминг уровней остановлен")
+    else
+        print("❌ Фарминг уровней не был запущен")
+    end
+end
 
 -- Основная функция фарма уровней
 function startLevelFarm()
@@ -117,6 +151,22 @@ function startLevelFarm()
         bodyVelocity.Parent = character.HumanoidRootPart
         
         return true
+    end
+    
+    -- Функция для отключения полета
+    local function disableFlight()
+        local character = localPlayer.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        
+        local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
+        if bodyVelocity then
+            bodyVelocity:Destroy()
+        end
     end
     
     -- Функция для полета к точке
@@ -465,7 +515,7 @@ function startLevelFarm()
     end
     
     -- Автоматическое обновление NoClip
-    local noClipConnection = game:GetService("RunService").Stepped:Connect(function()
+    noClipConnection = game:GetService("RunService").Stepped:Connect(function()
         if isLevelFarming and localPlayer.Character then
             enableNoClip()
         end
@@ -473,6 +523,8 @@ function startLevelFarm()
     
     -- Основной цикл фарма уровней
     spawn(function()
+        print("🚀 Запускаем фарминг уровней на " .. currentSea .. " море...")
+        
         while isLevelFarming do
             local character = localPlayer.Character
             if not character then
@@ -490,47 +542,53 @@ function startLevelFarm()
             enableNoClip()
             
             local playerLevel = getPlayerLevel()
-            print("Текущий уровень: " .. playerLevel)
+            print("📊 Текущий уровень: " .. playerLevel)
             
             -- Получаем информацию о квесте для текущего уровня
             local questInfo = getQuestInfo(playerLevel)
             
             if questInfo then
-                print("Начинаем квест: " .. questInfo.npc)
+                print("🎯 Начинаем квест: " .. questInfo.npc)
                 
                 -- Берем квест
                 if takeQuest(questInfo) then
-                    print("Квест взят, начинаем фарм мобов...")
+                    print("✅ Квест взят, начинаем фарм мобов...")
                     
                     -- Фармим мобов
                     if attackMobs(questInfo) then
-                        print("Все мобы убиты, сдаем квест...")
+                        print("🎉 Все мобы убиты, сдаем квест...")
                         
                         -- Сдаем квест
                         if completeQuest(questInfo) then
-                            print("Квест успешно сдан!")
+                            print("🏆 Квест успешно сдан!")
                         else
-                            print("Не удалось сдать квест")
+                            print("❌ Не удалось сдать квест")
                         end
                     else
-                        print("Не удалось убить всех мобов")
+                        print("❌ Не удалось убить всех мобов")
                     end
                 else
-                    print("Не удалось взять квест")
+                    print("❌ Не удалось взять квест")
                 end
             else
-                print("Не найден подходящий квест для уровня " .. playerLevel)
+                print("❌ Не найден подходящий квест для уровня " .. playerLevel)
             end
             
             wait(2)
         end
         
         -- Очистка при остановке
-        noClipConnection:Disconnect()
-        print("Фарминг уровней остановлен")
+        if noClipConnection then
+            noClipConnection:Disconnect()
+            noClipConnection = nil
+        end
+        disableFlight()
+        
+        print("🛑 Фарминг уровней остановлен")
     end)
 end
 
 LevelFarm:AddSection({ "Информация" })
 LevelFarm:AddParagraph({"Особенности:", "• Автовыбор квеста по уровню • Безопасная атака с расстояния • NoClip защита"})
-LevelFarm:AddParagraph({"Функции:", "• Автополет к NPC • Автоатака фруктом • Автосдача квеста"})
+LevelFarm:AddParagraph({"Функции:", "• Автополет к NPC • Автоатака фруктом • Автосдача квеста • Легкое отключение"})
+LevelFarm:AddParagraph({"Управление:", "• Включить - выбирает море и запускает • Отключить - полностью останавливает фарм"})
