@@ -220,90 +220,279 @@ function startLevelFarm()
         return localPlayer.Data.Level.Value
     end
     
-    -- Функция для получения информации о квесте
+    -- Улучшенная функция для получения информации о квесте на основе уровня
     local function getQuestInfo(level)
-        -- Квесты для 1 моря
         if currentSea == 1 then
+            -- 1 море - уровни 1-700
             if level < 10 then
                 return {
-                    npc = "Bandit",
-                    npcPosition = Vector3.new(-1000, 50, 1500),
+                    npc = "Start Island Quest Giver",
+                    npcPosition = Vector3.new(100, 50, 100),
                     mobName = "Bandit",
-                    mobPositions = {Vector3.new(-1050, 50, 1550), Vector3.new(-950, 50, 1450)}
+                    mobPositions = {Vector3.new(150, 50, 150), Vector3.new(50, 50, 50)}
                 }
             elseif level < 20 then
                 return {
-                    npc = "Monkey",
-                    npcPosition = Vector3.new(-1500, 50, 1000),
+                    npc = "Jungle Quest Giver",
+                    npcPosition = Vector3.new(-1500, 50, 100),
                     mobName = "Monkey",
-                    mobPositions = {Vector3.new(-1550, 50, 1050), Vector3.new(-1450, 50, 950)}
+                    mobPositions = {Vector3.new(-1550, 50, 150), Vector3.new(-1450, 50, 50)}
                 }
             elseif level < 30 then
                 return {
-                    npc = "Gorilla",
-                    npcPosition = Vector3.new(-2000, 50, 500),
+                    npc = "Pirate Village Quest Giver",
+                    npcPosition = Vector3.new(-1100, 50, 3800),
                     mobName = "Gorilla",
-                    mobPositions = {Vector3.new(-2050, 50, 550), Vector3.new(-1950, 50, 450)}
+                    mobPositions = {Vector3.new(-1150, 50, 3850), Vector3.new(-1050, 50, 3750)}
+                }
+            elseif level < 40 then
+                return {
+                    npc = "Desert Quest Giver",
+                    npcPosition = Vector3.new(900, 50, 3700),
+                    mobName = "Desert Bandit",
+                    mobPositions = {Vector3.new(850, 50, 3750), Vector3.new(950, 50, 3650)}
+                }
+            elseif level < 60 then
+                return {
+                    npc = "Snow Mountain Quest Giver",
+                    npcPosition = Vector3.new(1100, 150, -4700),
+                    mobName = "Snow Bandit",
+                    mobPositions = {Vector3.new(1050, 150, -4650), Vector3.new(1150, 150, -4750)}
+                }
+            elseif level < 75 then
+                return {
+                    npc = "Marine Fortress Quest Giver",
+                    npcPosition = Vector3.new(-4800, 50, 4300),
+                    mobName = "Marine",
+                    mobPositions = {Vector3.new(-4850, 50, 4350), Vector3.new(-4750, 50, 4250)}
+                }
+            elseif level < 90 then
+                return {
+                    npc = "Sky Island Quest Giver",
+                    npcPosition = Vector3.new(-4600, 700, -2600),
+                    mobName = "Sky Bandit",
+                    mobPositions = {Vector3.new(-4650, 700, -2550), Vector3.new(-4550, 700, -2650)}
+                }
+            elseif level < 120 then
+                return {
+                    npc = "Prison Quest Giver",
+                    npcPosition = Vector3.new(4800, 50, -2200),
+                    mobName = "Prisoner",
+                    mobPositions = {Vector3.new(4750, 50, -2150), Vector3.new(4850, 50, -2250)}
+                }
+            elseif level < 150 then
+                return {
+                    npc = "Colosseum Quest Giver",
+                    npcPosition = Vector3.new(-1800, 50, -2800),
+                    mobName = "Gladiator",
+                    mobPositions = {Vector3.new(-1850, 50, -2750), Vector3.new(-1750, 50, -2850)}
+                }
+            elseif level < 190 then
+                return {
+                    npc = "Magma Village Quest Giver",
+                    npcPosition = Vector3.new(-5300, 50, 2600),
+                    mobName = "Magma Ninja",
+                    mobPositions = {Vector3.new(-5350, 50, 2650), Vector3.new(-5250, 50, 2550)}
+                }
+            elseif level < 240 then
+                return {
+                    npc = "Underwater City Quest Giver",
+                    npcPosition = Vector3.new(2800, -150, -5600),
+                    mobName = "Fishman Warrior",
+                    mobPositions = {Vector3.new(2750, -150, -5550), Vector3.new(2850, -150, -5650)}
+                }
+            elseif level < 300 then
+                return {
+                    npc = "Fountain City Quest Giver",
+                    npcPosition = Vector3.new(4800, 50, 6000),
+                    mobName = "Galley Pirate",
+                    mobPositions = {Vector3.new(4750, 50, 6050), Vector3.new(4850, 50, 5950)}
                 }
             else
                 return {
-                    npc = "Military Soldier",
-                    npcPosition = Vector3.new(-500, 50, 2000),
-                    mobName = "Military Soldier",
-                    mobPositions = {Vector3.new(-550, 50, 2050), Vector3.new(-450, 50, 1950)}
+                    npc = "High Level Quest Giver",
+                    npcPosition = Vector3.new(-1500, 50, 1000),
+                    mobName = "Gorilla",
+                    mobPositions = {Vector3.new(-1550, 50, 1050), Vector3.new(-1450, 50, 950)}
                 }
             end
         
-        -- Квесты для 2 моря
         elseif currentSea == 2 then
-            if level < 700 then
+            -- 2 море - уровни 700-1500
+            if level < 750 then
                 return {
-                    npc = "Marine Captain",
+                    npc = "Kingdom of Rose Quest Giver",
                     npcPosition = Vector3.new(1400, 80, 100),
-                    mobName = "Marine Captain",
+                    mobName = "Raider",
                     mobPositions = {Vector3.new(1350, 80, 150), Vector3.new(1450, 80, 50)}
                 }
             elseif level < 800 then
                 return {
-                    npc = "Galley Captain",
+                    npc = "Usoap's Island Quest Giver",
                     npcPosition = Vector3.new(-500, 80, 1200),
-                    mobName = "Galley Captain",
+                    mobName = "Mercenary",
                     mobPositions = {Vector3.new(-550, 80, 1250), Vector3.new(-450, 80, 1150)}
+                }
+            elseif level < 850 then
+                return {
+                    npc = "Green Zone Quest Giver",
+                    npcPosition = Vector3.new(-1500, 80, 100),
+                    mobName = "Swan Pirate",
+                    mobPositions = {Vector3.new(-1550, 80, 150), Vector3.new(-1450, 80, 50)}
+                }
+            elseif level < 900 then
+                return {
+                    npc = "Graveyard Quest Giver",
+                    npcPosition = Vector3.new(-1000, 80, 1500),
+                    mobName = "Zombie",
+                    mobPositions = {Vector3.new(-1050, 80, 1550), Vector3.new(-950, 80, 1450)}
+                }
+            elseif level < 950 then
+                return {
+                    npc = "Snow Mountain 2 Quest Giver",
+                    npcPosition = Vector3.new(800, 200, -1200),
+                    mobName = "Snow Trooper",
+                    mobPositions = {Vector3.new(750, 200, -1150), Vector3.new(850, 200, -1250)}
+                }
+            elseif level < 1000 then
+                return {
+                    npc = "Hot Island Quest Giver",
+                    npcPosition = Vector3.new(-600, 80, -1400),
+                    mobName = "Fire Trooper",
+                    mobPositions = {Vector3.new(-650, 80, -1350), Vector3.new(-550, 80, -1450)}
+                }
+            elseif level < 1050 then
+                return {
+                    npc = "Ice Castle Quest Giver",
+                    npcPosition = Vector3.new(1100, 150, -1300),
+                    mobName = "Ice Trooper",
+                    mobPositions = {Vector3.new(1050, 150, -1250), Vector3.new(1150, 150, -1350)}
+                }
+            elseif level < 1100 then
+                return {
+                    npc = "Insane Quest Giver",
+                    npcPosition = Vector3.new(-800, 80, 1800),
+                    mobName = "Military Soldier",
+                    mobPositions = {Vector3.new(-850, 80, 1850), Vector3.new(-750, 80, 1750)}
+                }
+            elseif level < 1200 then
+                return {
+                    npc = "High Level 2 Quest Giver",
+                    npcPosition = Vector3.new(2000, 80, 600),
+                    mobName = "Military Spy",
+                    mobPositions = {Vector3.new(1950, 80, 650), Vector3.new(2050, 80, 550)}
                 }
             else
                 return {
-                    npc = "Forest Pirate",
-                    npcPosition = Vector3.new(-1500, 80, 100),
-                    mobName = "Forest Pirate",
-                    mobPositions = {Vector3.new(-1550, 80, 150), Vector3.new(-1450, 80, 50)}
+                    npc = "Final 2 Sea Quest Giver",
+                    npcPosition = Vector3.new(-1200, 80, 400),
+                    mobName = "Galley Captain",
+                    mobPositions = {Vector3.new(-1250, 80, 450), Vector3.new(-1150, 80, 350)}
                 }
             end
         
-        -- Квесты для 3 моря
         elseif currentSea == 3 then
-            if level < 1500 then
+            -- 3 море - уровни 1500+
+            if level < 1550 then
                 return {
-                    npc = "Pirate Millionaire",
+                    npc = "Port Town Quest Giver",
                     npcPosition = Vector3.new(-5000, 80, -5000),
                     mobName = "Pirate Millionaire",
                     mobPositions = {Vector3.new(-5050, 80, -4950), Vector3.new(-4950, 80, -5050)}
                 }
             elseif level < 1600 then
                 return {
-                    npc = "Dragon Crew Archer",
+                    npc = "Hydra Island Quest Giver",
                     npcPosition = Vector3.new(-3000, 80, -6000),
                     mobName = "Dragon Crew Archer",
                     mobPositions = {Vector3.new(-3050, 80, -5950), Vector3.new(-2950, 80, -6050)}
                 }
+            elseif level < 1650 then
+                return {
+                    npc = "Great Tree Quest Giver",
+                    npcPosition = Vector3.new(-1000, 80, -7000),
+                    mobName = "Dragon Crew Warrior",
+                    mobPositions = {Vector3.new(-1050, 80, -6950), Vector3.new(-950, 80, -7050)}
+                }
+            elseif level < 1700 then
+                return {
+                    npc = "Floating Turtle Quest Giver",
+                    npcPosition = Vector3.new(1000, 80, -8000),
+                    mobName = "Female Islander",
+                    mobPositions = {Vector3.new(950, 80, -7950), Vector3.new(1050, 80, -8050)}
+                }
+            elseif level < 1750 then
+                return {
+                    npc = "Haunted Castle Quest Giver",
+                    npcPosition = Vector3.new(5000, 80, -10000),
+                    mobName = "Giant Islander",
+                    mobPositions = {Vector3.new(4950, 80, -9950), Vector3.new(5050, 80, -10050)}
+                }
+            elseif level < 1800 then
+                return {
+                    npc = "Ice Cream Island Quest Giver",
+                    npcPosition = Vector3.new(-800, 80, -11000),
+                    mobName = "Marine Commodore",
+                    mobPositions = {Vector3.new(-850, 80, -10950), Vector3.new(-750, 80, -11050)}
+                }
+            elseif level < 1850 then
+                return {
+                    npc = "Peanut Island Quest Giver",
+                    npcPosition = Vector3.new(-2000, 80, -12000),
+                    mobName = "Marine Rear Admiral",
+                    mobPositions = {Vector3.new(-2050, 80, -11950), Vector3.new(-1950, 80, -12050)}
+                }
+            elseif level < 1900 then
+                return {
+                    npc = "Cake Island Quest Giver",
+                    npcPosition = Vector3.new(-4000, 80, -12500),
+                    mobName = "Baking Staff",
+                    mobPositions = {Vector3.new(-4050, 80, -12450), Vector3.new(-3950, 80, -12550)}
+                }
+            elseif level < 1950 then
+                return {
+                    npc = "Cafe Quest Giver",
+                    npcPosition = Vector3.new(-380, 80, -11800),
+                    mobName = "Head Baker",
+                    mobPositions = {Vector3.new(-430, 80, -11750), Vector3.new(-330, 80, -11850)}
+                }
             else
                 return {
-                    npc = "Ship Deckhand",
-                    npcPosition = Vector3.new(1000, 80, -8000),
-                    mobName = "Ship Deckhand",
-                    mobPositions = {Vector3.new(950, 80, -7950), Vector3.new(1050, 80, -8050)}
+                    npc = "Sea of Treats Quest Giver",
+                    npcPosition = Vector3.new(-1500, 80, -11500),
+                    mobName = "Cake Guard",
+                    mobPositions = {Vector3.new(-1550, 80, -11450), Vector3.new(-1450, 80, -11550)}
                 }
             end
         end
+        
+        -- Если ничего не найдено, возвращаем базовый квест
+        return {
+            npc = "Default Quest Giver",
+            npcPosition = Vector3.new(0, 50, 0),
+            mobName = "Bandit",
+            mobPositions = {Vector3.new(50, 50, 50), Vector3.new(-50, 50, -50)}
+        }
+    end
+    
+    -- Функция для поиска NPC по имени
+    local function findNPC(npcName)
+        -- Ищем в разных возможных местах
+        local locations = {
+            workspace.NPCs,
+            workspace.Live,
+            workspace
+        }
+        
+        for _, location in ipairs(locations) do
+            for _, npc in pairs(location:GetChildren()) do
+                if npc.Name:lower():find(npcName:lower()) and npc:FindFirstChild("HumanoidRootPart") then
+                    return npc
+                end
+            end
+        end
+        
+        return nil
     end
     
     -- Функция для взятия квеста
@@ -313,36 +502,67 @@ function startLevelFarm()
         
         print("Летим к NPC: " .. questInfo.npc)
         
+        -- Сначала пытаемся найти NPC по имени
+        local npc = findNPC(questInfo.npc)
+        local npcPosition = questInfo.npcPosition
+        
+        if npc then
+            npcPosition = npc.HumanoidRootPart.Position
+            print("Нашли NPC в игре: " .. npc.Name)
+        else
+            print("NPC не найден, используем запасную позицию")
+        end
+        
         -- Летим к NPC
-        flyToPosition(questInfo.npcPosition, 150)
+        flyToPosition(npcPosition, 150)
         wait(1)
         
-        -- Ищем NPC
-        for _, npc in pairs(workspace.NPCs:GetChildren()) do
-            if npc.Name:find(questInfo.npc) and npc:FindFirstChild("HumanoidRootPart") then
-                print("Нашли NPC, берем квест...")
-                
-                -- Подлетаем ближе к NPC
-                flyToPosition(npc.HumanoidRootPart.Position, 50)
-                wait(0.5)
-                
-                -- Активируем диалог с NPC (имитируем нажатие E)
-                local args = {
-                    [1] = npc.Name,
-                    [2] = "StartQuest"
-                }
-                
-                -- Пытаемся взять квест через RemoteEvent
-                pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                end)
-                
-                wait(1)
-                return true
-            end
+        -- Если нашли NPC, подлетаем ближе
+        if npc then
+            flyToPosition(npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0), 50)
+            wait(0.5)
+            
+            -- Активируем диалог с NPC
+            local args = {
+                [1] = npc.Name,
+                [2] = "StartQuest"
+            }
+            
+            -- Пытаемся взять квест через RemoteEvent
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+            end)
+            
+            wait(1)
+            return true
         end
         
         return false
+    end
+    
+    -- Функция для поиска мобов
+    local function findMobs(mobName)
+        local mobs = {}
+        
+        -- Ищем в разных возможных местах
+        local locations = {
+            workspace.Enemies,
+            workspace.Live,
+            workspace.Mobs,
+            workspace
+        }
+        
+        for _, location in ipairs(locations) do
+            for _, mob in pairs(location:GetChildren()) do
+                if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    if mob.Name:lower():find(mobName:lower()) then
+                        table.insert(mobs, mob)
+                    end
+                end
+            end
+        end
+        
+        return mobs
     end
     
     -- Функция для атаки мобов
@@ -363,36 +583,33 @@ function startLevelFarm()
             local character = localPlayer.Character
             if not character then break end
             
-            -- Ищем ближайшего моба
-            local nearestMob = nil
-            local nearestDistance = math.huge
+            -- Ищем мобов
+            local mobs = findMobs(questInfo.mobName)
             
-            for _, mob in pairs(workspace.Enemies:GetChildren()) do
-                if mob.Name:find(questInfo.mobName) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    local distance = (mob.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
-                    if distance < nearestDistance then
-                        nearestDistance = distance
-                        nearestMob = mob
-                    end
-                end
-            end
-            
-            if nearestMob then
-                print("Атакуем моба: " .. nearestMob.Name)
+            if #mobs > 0 then
+                -- Сортируем по расстоянию
+                table.sort(mobs, function(a, b)
+                    local aDist = (a.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+                    local bDist = (b.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+                    return aDist < bDist
+                end)
+                
+                local targetMob = mobs[1]
+                print("Атакуем моба: " .. targetMob.Name)
                 
                 -- Летим к мобу на безопасное расстояние
-                local attackPosition = nearestMob.HumanoidRootPart.Position + Vector3.new(10, 5, 10)
+                local attackPosition = targetMob.HumanoidRootPart.Position + Vector3.new(10, 5, 10)
                 flyToPosition(attackPosition, 80)
                 
                 -- Используем фрукт для атаки
-                useFruitAttack(nearestMob)
+                useFruitAttack(targetMob)
                 
                 -- Ждем смерти моба
                 local mobAlive = true
                 local attackTime = tick()
                 
                 while mobAlive and isLevelFarming and (tick() - attackTime < 10) do
-                    if not nearestMob or not nearestMob.Parent or nearestMob.Humanoid.Health <= 0 then
+                    if not targetMob or not targetMob.Parent or targetMob.Humanoid.Health <= 0 then
                         mobAlive = false
                         mobsKilled = mobsKilled + 1
                         print("Моб убит! Всего: " .. mobsKilled .. "/" .. maxMobs)
@@ -400,7 +617,7 @@ function startLevelFarm()
                     end
                     
                     -- Продолжаем атаковать
-                    useFruitAttack(nearestMob)
+                    useFruitAttack(targetMob)
                     wait(0.5)
                 end
                 
@@ -486,29 +703,35 @@ function startLevelFarm()
         
         print("Сдаем квест...")
         
+        -- Снова ищем NPC
+        local npc = findNPC(questInfo.npc)
+        local npcPosition = questInfo.npcPosition
+        
+        if npc then
+            npcPosition = npc.HumanoidRootPart.Position
+        end
+        
         -- Летим обратно к NPC
-        flyToPosition(questInfo.npcPosition, 150)
+        flyToPosition(npcPosition, 150)
         wait(1)
         
-        -- Ищем NPC для сдачи квеста
-        for _, npc in pairs(workspace.NPCs:GetChildren()) do
-            if npc.Name:find(questInfo.npc) and npc:FindFirstChild("HumanoidRootPart") then
-                flyToPosition(npc.HumanoidRootPart.Position, 50)
-                wait(0.5)
-                
-                -- Сдаем квест
-                local args = {
-                    [1] = npc.Name,
-                    [2] = "EndQuest"
-                }
-                
-                pcall(function()
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-                end)
-                
-                wait(1)
-                return true
-            end
+        -- Если нашли NPC, подлетаем ближе
+        if npc then
+            flyToPosition(npc.HumanoidRootPart.Position + Vector3.new(0, 5, 0), 50)
+            wait(0.5)
+            
+            -- Сдаем квест
+            local args = {
+                [1] = npc.Name,
+                [2] = "EndQuest"
+            }
+            
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+            end)
+            
+            wait(1)
+            return true
         end
         
         return false
@@ -548,7 +771,7 @@ function startLevelFarm()
             local questInfo = getQuestInfo(playerLevel)
             
             if questInfo then
-                print("🎯 Начинаем квест: " .. questInfo.npc)
+                print("🎯 Начинаем квест: " .. questInfo.npc .. " (Мобы: " .. questInfo.mobName .. ")")
                 
                 -- Берем квест
                 if takeQuest(questInfo) then
@@ -589,6 +812,6 @@ function startLevelFarm()
 end
 
 LevelFarm:AddSection({ "Информация" })
-LevelFarm:AddParagraph({"Особенности:", "• Автовыбор квеста по уровню • Безопасная атака с расстояния • NoClip защита"})
+LevelFarm:AddParagraph({"Особенности:", "• Умный выбор квеста по уровню • Автопоиск NPC и мобов • Безопасная атака"})
 LevelFarm:AddParagraph({"Функции:", "• Автополет к NPC • Автоатака фруктом • Автосдача квеста • Легкое отключение"})
 LevelFarm:AddParagraph({"Управление:", "• Включить - выбирает море и запускает • Отключить - полностью останавливает фарм"})
