@@ -56,6 +56,92 @@ ChestFarm:AddButton({
             local TweenService = game:GetService("TweenService")
             isRunning = true
             
+            -- Функция для включения полета
+            local function enableFlight()
+                local character = localPlayer.Character
+                if not character then return false end
+                
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if not humanoid then return false end
+                
+                -- Включаем полет
+                humanoid.PlatformStand = true
+                
+                -- Создаем BodyVelocity для полета
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+                bodyVelocity.Parent = character.HumanoidRootPart
+                
+                return true
+            end
+            
+            -- Функция для отключения полета
+            local function disableFlight()
+                local character = localPlayer.Character
+                if not character then return end
+                
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.PlatformStand = false
+                end
+                
+                -- Удаляем BodyVelocity
+                local bodyVelocity = character.HumanoidRootPart:FindFirstChild("BodyVelocity")
+                if bodyVelocity then
+                    bodyVelocity:Destroy()
+                end
+            end
+            
+            -- Функция для плавного полета к точке
+            local function flyToPosition(targetPosition, speed)
+                local character = localPlayer.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then
+                    return false
+                end
+                
+                local rootPart = character.HumanoidRootPart
+                local bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
+                
+                if not bodyVelocity then
+                    enableFlight()
+                    bodyVelocity = rootPart:FindFirstChild("BodyVelocity")
+                    if not bodyVelocity then return false end
+                end
+                
+                local startTime = tick()
+                local maxTime = 10 -- Максимальное время полета
+                
+                while isRunning and character and rootPart do
+                    local distance = (targetPosition - rootPart.Position).Magnitude
+                    
+                    if distance < 5 then -- Достигли цели
+                        break
+                    end
+                    
+                    if tick() - startTime > maxTime then -- Таймаут
+                        print("Таймаут полета")
+                        break
+                    end
+                    
+                    -- Вычисляем направление
+                    local direction = (targetPosition - rootPart.Position).Unit
+                    local velocity = direction * math.min(speed, distance * 2)
+                    
+                    -- Устанавливаем скорость
+                    bodyVelocity.Velocity = velocity
+                    
+                    wait(0.03)
+                end
+                
+                -- Останавливаемся
+                if bodyVelocity then
+                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                end
+                
+                return true
+            end
+            
             -- Функция для поиска всех сундуков на карте
             local function findAllChests()
                 local chests = {}
@@ -76,35 +162,6 @@ ChestFarm:AddButton({
                 return chests
             end
             
-            -- Функция для проверки наличия сундуков в области
-            local function checkChestsInArea(position, radius)
-                local chests = findAllChests()
-                local chestsInArea = {}
-                
-                for _, chest in pairs(chests) do
-                    local distance = (chest.Position - position).Magnitude
-                    if distance <= radius then
-                        table.insert(chestsInArea, chest)
-                    end
-                end
-                
-                return chestsInArea
-            end
-            
-            -- Функция для безопасной телепортации к сундуку
-            local function teleportToChest(chest)
-                local character = localPlayer.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then
-                    return false
-                end
-                
-                -- Телепортируемся над сундуком
-                local targetPosition = chest.Position + Vector3.new(0, 10, 0)
-                character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-                wait(0.5)
-                return true
-            end
-            
             -- Функция для сбора сундука
             local function collectChest(chest)
                 if not chest or not chest.Parent then 
@@ -116,6 +173,11 @@ ChestFarm:AddButton({
                     return false
                 end
                 
+                -- Подлетаем ближе к сундуку
+                local targetPos = chest.Position + Vector3.new(0, 3, 0)
+                flyToPosition(targetPos, 50)
+                wait(0.2)
+                
                 -- Собираем сундук
                 firetouchinterest(character.HumanoidRootPart, chest, 0)
                 wait(0.05)
@@ -125,42 +187,38 @@ ChestFarm:AddButton({
                 return true
             end
             
-            -- Функция для поиска лучшей точки с сундуками
-            local function findBestChestLocation()
-                -- Точки для проверки на Втором море
-                local checkPoints = {
-                    Vector3.new(1400, 80, 100),    -- Kingdom of Rose
-                    Vector3.new(1600, 80, -200),   -- Kingdom of Rose
-                    Vector3.new(1200, 80, -500),   -- Kingdom of Rose
-                    Vector3.new(800, 80, 300),     -- Kingdom of Rose
-                    Vector3.new(2000, 80, 600),    -- Kingdom of Rose
-                    Vector3.new(-500, 80, 1200),   -- Usoap's Island
-                    Vector3.new(-800, 80, 800),    -- Usoap's Island
-                    Vector3.new(-1200, 80, 400),   -- Usoap's Island
-                    Vector3.new(-1500, 80, 100),   -- Green Zone
-                    Vector3.new(-1800, 80, -200),  -- Green Zone
-                    Vector3.new(500, 80, -1200),   -- Cursed Ship
-                    Vector3.new(800, 80, -1500),   -- Cursed Ship
-                    Vector3.new(-2000, 80, -800),  -- Frozen Village
-                    Vector3.new(-2200, 80, -500),  -- Frozen Village
-                    Vector3.new(2500, 80, -1000)   -- Ice Castle
-                }
-                
-                local bestLocation = nil
-                local maxChests = 0
-                
-                -- Проверяем все точки на наличие сундуков
-                for _, point in pairs(checkPoints) do
-                    if not isRunning then break end
-                    
-                    local chestsInArea = checkChestsInArea(point, 300)
-                    if #chestsInArea > maxChests then
-                        maxChests = #chestsInArea
-                        bestLocation = point
-                    end
+            -- Функция для безопасного полета к сундуку
+            local function flyToChest(chest)
+                if not chest or not chest.Parent then 
+                    return false 
                 end
                 
-                return bestLocation, maxChests
+                local character = localPlayer.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then
+                    return false
+                end
+                
+                -- Включаем полет
+                if not enableFlight() then
+                    return false
+                end
+                
+                -- Положение над сундуком для сбора
+                local targetPosition = chest.Position + Vector3.new(0, 5, 0)
+                
+                print("Летим к сундуку на позиции: " .. tostring(chest.Position))
+                
+                -- Летим к сундуку
+                local success = flyToPosition(targetPosition, 80)
+                
+                if success then
+                    print("Долетели до сундука")
+                    wait(0.3)
+                    return true
+                else
+                    print("Не удалось долететь до сундука")
+                    return false
+                end
             end
             
             -- Основной цикл фарминга
@@ -176,11 +234,20 @@ ChestFarm:AddButton({
                     continue
                 end
                 
+                -- Включаем полет в начале цикла
+                enableFlight()
+                
                 -- Ищем все сундуки на карте
                 local allChests = findAllChests()
                 
                 if #allChests > 0 then
-                    print("Найдено сундуков на карте: " .. #allChests)
+                    print("Найдено сундуков: " .. #allChests)
+                    
+                    -- Сортируем сундуки по расстоянию (ближайшие first)
+                    table.sort(allChests, function(a, b)
+                        local charPos = character.HumanoidRootPart.Position
+                        return (a.Position - charPos).Magnitude < (b.Position - charPos).Magnitude
+                    end)
                     
                     -- Собираем все найденные сундуки
                     for i, chest in ipairs(allChests) do
@@ -189,8 +256,8 @@ ChestFarm:AddButton({
                         
                         print("Собираем сундук " .. i .. " на позиции " .. tostring(chest.Position))
                         
-                        -- Телепортируемся к сундуку
-                        if teleportToChest(chest) then
+                        -- Летим к сундуку
+                        if flyToChest(chest) then
                             -- Собираем сундук
                             local collected = collectChest(chest)
                             if collected then
@@ -199,40 +266,21 @@ ChestFarm:AddButton({
                                 print("✗ Не удалось собрать сундук " .. i)
                             end
                         end
-                        wait(1)
+                        
+                        wait(0.5)
                     end
                 else
-                    print("Сундуков не найдено, ищем лучшую локацию...")
-                    
-                    -- Ищем точку с наибольшим количеством сундуков
-                    local bestLocation, chestCount = findBestChestLocation()
-                    
-                    if bestLocation and chestCount > 0 then
-                        print("Найдена точка с " .. chestCount .. " сундуками, телепортируемся...")
-                        
-                        -- Телепортируемся к лучшей точке
-                        character.HumanoidRootPart.CFrame = CFrame.new(bestLocation)
-                        wait(2)
-                    else
-                        print("Точек с сундуками не найдено, проверяем случайные локации...")
-                        
-                        -- Случайная точка для проверки
-                        local randomPoints = {
-                            Vector3.new(1400, 80, 100),
-                            Vector3.new(-500, 80, 1200),
-                            Vector3.new(-2000, 80, -800),
-                            Vector3.new(500, 80, -1200)
-                        }
-                        
-                        local randomPoint = randomPoints[math.random(1, #randomPoints)]
-                        character.HumanoidRootPart.CFrame = CFrame.new(randomPoint)
-                        wait(3)
-                    end
+                    print("Сундуков не найдено, проверяем позже...")
+                    -- Отключаем полет на время ожидания
+                    disableFlight()
+                    wait(5)
                 end
                 
-                wait(2) -- Задержка между циклами
+                wait(1) -- Задержка между циклами
             end
             
+            -- Отключаем полет при остановке
+            disableFlight()
             print("Фарминг остановлен")
         end
         
@@ -252,5 +300,5 @@ ChestFarm:AddButton({
 })
 
 ChestFarm:AddSection({ "Информация" })
-ChestFarm:AddParagraph({"Важно:", "Скрипт сначала ищет сундуки, затем телепортируется только к тем точкам, где они есть"})
-ChestFarm:AddParagraph({"Алгоритм:", "1. Сканирует всю карту на наличие сундуков 2. Телепортируется к найденным сундукам 3. Если сундуков нет, ищет лучшую локацию"})
+ChestFarm:AddParagraph({"Важно:", "Скрипт использует плавный полет вместо телепортации"})
+ChestFarm:AddParagraph({"Особенности:", "• Плавное перемещение между сундуками • Автоматический полет • Безопасный сбор"})
